@@ -249,10 +249,45 @@ const SPOTS = [
       }
       log.push('BILGI  cesedin sunucu konumu: ' + (ref ? `(${ref.tx},${ref.ty})` : '?') + ' — olum yeri: ' + (truth[tgt] ? `oyuncu ${truth[tgt].tab}` : tgt));
       ok('her istemci ceseti ayni, kesildigi yerde goruyor', corpseBad.length === 0, corpseBad.slice(0, 6).join(' | '));
+
+      // 9) GÖRÜŞ KONİSİ CESEDLER İÇİN DE GEÇERLİ OLMALI.
+      //    Ceset koni dışındayken render() onu ÇİZMEMELİ.
+      //    Asıl render() çağrılır, drawBean sarmalanıp gerçekten çizilip
+      //    çizilmediği sayılır — sadece isInView() sorgusuna bakılmaz.
+      const tj2 = JSON.stringify(tgt);
+      const seenBad = [];
+      for (let i = 0; i < N; i++) {
+        const selfId = await tabs[i].js('myId');
+        if (selfId === tgt) continue;   // kurban kendi cesedini her görür
+        const r = JSON.parse(await tabs[i].js(`(()=>{
+          const me=ME(),c=players.get(${tj2});
+          if(!me||!c||c.dead!==true)return JSON.stringify({skip:1});
+          const sx=me.x,sy=me.y;
+          const R=200;   // koni içinde (330) ama yakınlık çemberi dışında (135)
+          const probe=ang=>{
+            me.x=c.x+R; me.y=c.y; me.angle=ang; me.dead=false;
+            let hits=0; const orig=drawBean;
+            drawBean=function(g,x,y){if(g===gx&&Math.abs(x-c.x)<6&&Math.abs(y-c.y)<6)hits++;return orig.apply(this,arguments)};
+            render();
+            drawBean=orig;
+            return {inView:isInView(me,c),drawn:hits>0};
+          };
+          const front=probe(Math.PI);   // cesede dönük  -> gorunmeli
+          const back=probe(0);         // ters yön      -> gorunmemeli
+          me.x=sx; me.y=sy;
+          return JSON.stringify({front,back});
+        })()`));
+        if (r.skip) { seenBad.push('T' + i + ': ceset bulunamadi'); continue; }
+        if (!r.front.inView || !r.front.drawn)
+          seenBad.push(`T${i}: koni icindeki ceset cizilmedi (inView=${r.front.inView} drawn=${r.front.drawn})`);
+        if (r.back.inView || r.back.drawn)
+          seenBad.push(`T${i}: koni disindaki ceset gorundu (inView=${r.back.inView} drawn=${r.back.drawn})`);
+      }
+      ok('ceset yalnizca gorus konisi icindeyken gorunuyor', seenBad.length === 0, seenBad.slice(0, 6).join(' | '));
     }
   }
 
-  // 9) Oyun ici konsol hatalari
+  // 10) Oyun ici konsol hatalari
   const errs = tabs.flatMap(t => t.errors.map(e => t.tag + ':' + e)).filter(e => !/favicon|ERR_|Failed to load resource/.test(e));
   ok('hicbir sekmede JS hatasi yok', errs.length === 0, errs.slice(0, 4).join(' | '));
 

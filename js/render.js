@@ -91,6 +91,19 @@ function updateBot(b,dt){b.wait-=dt;if(b.wait>0){b.moving=false;return}
   if(dx||dy)b.angle=Math.atan2(dy,dx);
   if(Math.hypot(b.x-b.tx,b.y-b.ty)<10){b.wait=rand(.2,.5);botTarget(b);}}
 
+/* Bir oyuncuyu çizmemize izin var mı?
+   GÖRÜŞ KONİSİ CESEDLER İÇİN DE GEÇERLİ: ölüler de dışarıda kalınca
+   görünmez. Eskiden koşulda "!p.dead" vardı, bu yüzden cesetler koni
+   dışında olsalar bile HER YERDEN görünüyordu.
+   Kendimiz, ölüyken (ölüm ekranı) ve henüz oyuncu listesi yokken çizilir. */
+function canSee(me,p){
+  if(!me)return true;
+  if(p.id===myId)return true;
+  if(me.dead)return true;
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return false;  // NaN asla çizilmez
+  return isInView(me,p);
+}
+
 function render(){
   const w=vw,h=vh;
   bgx.setTransform(dpr,0,0,dpr,0,0);
@@ -105,8 +118,7 @@ function render(){
   const impNames=new Set([...roles.entries()].filter(([id,r])=>r==='impostor').map(([id])=>id));
   const meImp=roles.get(myId)==='impostor';
   for(const p of list){
-    if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;   // NaN asla çizilmez
-    if(me&&!me.dead&&p.id!==myId&&!p.dead&&!isInView(me,p))continue;
+    if(!canSee(me,p))continue;
     drawBean(gx,p.x,p.y,1,p.ci,p.dir,p.moving,T+(p.bob||0),p.dead);
     if(!p.dead){
       gx.font='800 12px Nunito';gx.textAlign='center';
