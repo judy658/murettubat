@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>MÜRETTEBAT — Sosyal İhanet Oyunu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+<!-- PeerJS kaldırıldı: artık bağlantı doğrudan kendi WebSocket sunucumuza gidiyor. -->
+<!-- stil katmanı: temel -> ekranlar -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/menu.css">
+<link rel="stylesheet" href="css/lobby.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <section id="scr-menu" class="screen on">
+    <div class="menu-wrap">
+      <div>
+        <span class="logo-tag">UZAY İSTASYONU • KAYIP VARDİYA</span>
+        <h1 class="logo">MÜRETTEBAT</h1>
+        <p class="logo-sub">Aramızda bir sahtekâr var. Odayı kur, 5 karakterlik kodu paylaş — arkadaşların herhangi bir tarayıcıdan koda katılsın. Herkes kendi sunucusuna bağlı, host yok, gecikme yok.</p>
+        <div class="panel">
+          <label class="lbl">OYUNCU ADIN</label>
+          <input type="text" id="nameIn" maxlength="12" placeholder="Örn: KaptanArda" autocomplete="off">
+          <label class="lbl">RENK SEÇ</label>
+          <div class="sws" id="swatches"></div>
+          <div class="actions">
+            <button class="btn big" id="createBtn">🚀 ODA KUR</button>
+            <button class="btn big cyan" id="joinToggle">🔑 ODAYA KATIL</button>
+            <div class="join-row" id="joinRow">
+              <input type="text" id="joinCode" maxlength="5" placeholder="KOD" autocomplete="off">
+              <button class="btn green" id="joinGo" style="white-space:nowrap">GİR →</button>
+            </div>
+            <button class="btn big ghost" id="soloBtn">🛰️ SOLO ANTRENMAN (bots)</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">📋 GÖREV PANOSU</div>
+        <div class="road">
+          <div class="road-item"><span class="badge-ok">✔ AŞAMA 1</span><div><b>Lobi &amp; Roller</b><span>Oda kur/katıl, renk &amp; isim, hazır olma, Mürettebat/Sahtekâr dağıtımı, mini harita, açılı ışık sistemi.</span></div></div>
+          <div class="road-item"><span class="badge-ok">✔ AŞAMA 2</span><div><b>Kill &amp; Oyun Sonu</b><span>Sahtekâr kill yapabilir, ölüm ekranı, oyun bitme koşulları ve sonuç ekranı.</span></div></div>
+          <div class="road-item"><span style="font-size:18px">❓</span><div><b>Nasıl oynanır?</b><span>1) Oda kur → 2) Kodu paylaş → 3) Herkes "Hazır" olunca host başlatır. <b>PC:</b> WASD ile yürü, fare ile yön ver, <b>Q</b> ile öldür. <b>Mobil:</b> parmağınla sürükle, kırmızı butonla öldür. Sadece baktığın yön aydınlık!</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="menu-foot">
+      <span class="net" id="netStat"><i></i>Sunucu: bilinmiyor</span>
+      <span>v0.4.0 • Sunucu modu <button class="btn small ghost" id="sndBtn">🔊</button></span>
+    </div>
+  </section>
+  <section id="scr-lobby" class="screen">
+    <div class="lobby-wrap">
+      <div class="lb-head">
+        <button class="btn small ghost" id="leaveLobby">← AYRIL</button>
+        <h2>LOBİ</h2>
+        <div class="code-card" id="lbCode" title="Kopyalamak için tıkla">-----<small>KOPYALAMAK İÇİN TIKLA</small></div>
+        <span class="chip" id="lbCount">1/8 oyuncu</span>
+      </div>
+      <div class="slots" id="slots"></div>
+      <div class="side">
+        <div class="panel ready-row">
+          <button class="btn big green" id="readyBtn">✅ HAZIRIM</button>
+          <button class="btn big yellow" id="startBtn" style="display:none">▶ OYUNU BAŞLAT</button>
+          <div id="startHint"></div>
+        </div>
+        <div class="panel chat">
+          <div class="ptitle">💬 SOHBET</div>
+          <div class="msgs" id="lbMsgs"></div>
+          <form class="msgform" id="lbForm"><input type="text" id="lbIn" maxlength="120" placeholder="Mesaj yaz…" autocomplete="off"><button class="btn small cyan">➤</button></form>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="scr-game" class="screen">
+    <canvas id="game"></canvas>
+    <div class="hud" id="hudTL">
+      <span class="chip" id="hudCode">-----</span>
+      <span class="chip" id="hudCount">1 oyuncu</span>
+      <span class="chip role crew" id="roleChip" style="display:none">MÜRETTEBAT</span>
+      <button class="btn small ghost" id="hudBack" style="display:none">⏹ LOBİYE DÖN</button>
+      <button class="btn small ghost" id="hudLeave">🚪 ÇIK</button>
+    </div>
+    <div class="hud" id="hudTR">
+      <button class="iconbtn" id="chatBtn">💬</button>
+      <button class="iconbtn" id="sndBtn2">🔊</button>
+    </div>
+    <div class="panel chat" id="chatBox">
+      <div class="msgs" id="gMsgs"></div>
+      <form class="msgform" id="gForm"><input type="text" id="gIn" maxlength="120" placeholder="Mesaj yaz…" autocomplete="off"><button class="btn small cyan">➤</button></form>
+    </div>
+    <div id="roomToast"></div>
+    <div id="hint">WASD / OK TUŞLARI ile yürü · Fare ile nişan al · Sahtekârsan Q (ya da 🔪) ile öldür</div>
+    <div class="joybase" id="joyBase"></div>
+    <div class="joyknob" id="joyKnob"></div>
+    <button id="killBtn" title="Öldür">🔪<span class="cd"></span></button>
+  </section>
+</div>
+<div id="reveal"><canvas id="rvBean" width="260" height="290"></canvas>
+  <div id="rvWord"></div><div id="rvSub"></div><div id="rvTeam"></div></div>
+<div id="deathScreen">
+  <h2>ÖLDÜN</h2>
+  <p>Bir sahtekâr tarafından öldürüldün. Artık bir hayaletsin.</p>
+  <button class="btn big ghost" id="deathContinue">Devam Et (Hayalet Modu)</button>
+</div>
+<div id="resultScreen">
+  <h2 id="rsTitle"></h2>
+  <div class="sub" id="rsSub"></div>
+  <div class="players" id="rsPlayers"></div>
+  <button class="btn big cyan" id="rsBack">LOBİYE DÖN</button>
+</div>
+<div id="toasts"></div>
+<!-- mantık katmanı: sıralama ÖNEMLİ (global kapsam paylaşımı) -->
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/state.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/world.js"></script>
+<script src="js/fog.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/lobby.js"></script>
+<script src="js/game.js"></script>
+<script src="js/input.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

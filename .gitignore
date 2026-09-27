@@ -1,0 +1,10 @@
+# Bağımlılıklar
+node_modules/
+
+# Test/tampon dosyaları
+*.log
+.DS_Store
+Thumbs.db
+
+# Monolitik orijinal yedek: diskte duruyor, repoya gerek yok
+backup/

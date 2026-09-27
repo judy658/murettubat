@@ -1,0 +1,33 @@
+/* lobby.css — lobi ekranı, oyuncu slotları, hazır butonları, sohbet */
+#scr-lobby{padding:16px}
+.lobby-wrap{max-width:1280px;margin:0 auto;min-height:100%;display:grid;grid-template-columns:minmax(0,1fr) 350px;grid-template-rows:auto 1fr;gap:14px}
+.lb-head{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.lb-head h2{font-family:'Bangers';font-size:34px;letter-spacing:.06em}
+.code-card{background:#0a1120;border:3px dashed var(--cyan);border-radius:16px;padding:6px 20px;font-family:'Bangers';font-size:36px;letter-spacing:.3em;color:var(--cyan);cursor:pointer;user-select:none;transition:transform .12s,background .15s}
+.code-card:hover{transform:scale(1.04);background:#0e1830}
+.code-card small{display:block;font-family:'Nunito';font-size:10px;letter-spacing:.2em;color:var(--mut);text-align:center}
+.chip{background:rgba(10,17,32,.85);border:2px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:800;font-size:13px;letter-spacing:.06em}
+.chip.role.crew{border-color:var(--green);color:var(--green)}
+.chip.role.imp{border-color:var(--red);color:var(--red)}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-content:start}
+@media(max-width:1150px){.lobby-wrap{grid-template-columns:1fr}.slots{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.slots{grid-template-columns:1fr 1fr}}
+.slot{background:var(--panel2);border:3px solid var(--line);border-radius:16px;padding:10px;display:flex;gap:10px;align-items:center;min-height:86px;animation:pop .2s}
+.slot.me{border-color:var(--yellow)}
+.slot.empty{border-style:dashed;opacity:.5;justify-content:center;color:var(--mut);font-weight:900;font-size:12px;letter-spacing:.14em;text-align:center}
+.slot .info{min-width:0}
+.slot .nm{font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdg{display:inline-block;font-size:10px;font-weight:900;letter-spacing:.1em;border-radius:6px;padding:2px 7px;margin-top:3px}
+.bdg.host{background:rgba(255,210,63,.15);color:var(--yellow);border:1px solid var(--yellow)}
+.bdg.rdy{background:rgba(79,224,138,.12);color:var(--green);border:1px solid var(--green)}
+.bdg.wait{background:rgba(143,165,207,.1);color:var(--mut);border:1px solid var(--line)}
+.side{display:flex;flex-direction:column;gap:12px;min-height:0}
+.ready-row{display:flex;flex-direction:column;gap:8px}
+#startHint{font-size:12.5px;color:var(--mut);font-weight:800;text-align:center}
+.chat{flex:1;display:flex;flex-direction:column;min-height:200px}
+.msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;max-height:34vh}
+.msg{font-size:13.5px;background:#0a1120;border:2px solid #1c2b4d;border-radius:10px;padding:6px 10px;animation:pop .18s;word-break:break-word}
+.msg.sys{color:var(--mut);font-style:italic;border-style:dashed}
+.msg b{margin-right:6px}
+.msgform{display:flex;gap:8px;margin-top:10px}
+.msgform input{flex:1;padding:9px 12px;font-size:14px}

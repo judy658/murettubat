@@ -1,0 +1,63 @@
+/* game.css — oyun ekranı HUD, sohbet kutusu, joystick, kill butonu, rol/ölüm/sonuç ekranları */
+#scr-game{overflow:hidden}
+#game{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#hudTL{top:14px;left:14px}
+#hudTR{top:14px;right:14px}
+.iconbtn{font-size:18px;width:42px;height:42px;border-radius:12px;background:rgba(10,17,32,.85);border:2px solid var(--line);color:#fff;cursor:pointer;transition:transform .1s,border-color .15s}
+.iconbtn:hover{transform:scale(1.08);border-color:var(--cyan)}
+#chatBox{position:absolute;right:14px;top:66px;width:min(340px,86vw);z-index:6;display:none;flex-direction:column}
+#chatBox.on{display:flex}
+#chatBox .msgs{max-height:36vh}
+#roomToast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);font-family:'Bangers';font-size:32px;letter-spacing:.22em;color:rgba(255,255,255,.85);text-shadow:0 3px 0 #000;opacity:0;transition:opacity .3s;pointer-events:none;z-index:4}
+#hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.55);font-size:12.5px;font-weight:800;background:rgba(10,17,32,.6);padding:6px 16px;border-radius:999px;border:2px solid rgba(255,255,255,.08);z-index:4;pointer-events:none;white-space:nowrap}
+.joybase{position:absolute;width:112px;height:112px;border-radius:50%;background:rgba(255,255,255,.07);border:3px solid rgba(255,255,255,.2);display:none;z-index:6;pointer-events:none}
+.joyknob{position:absolute;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.24);border:3px solid rgba(255,255,255,.4);display:none;z-index:6;pointer-events:none}
+#reveal{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .45s;text-align:center;padding:20px}
+#reveal.on{opacity:1}
+#reveal.crew{background:radial-gradient(circle at 50% 42%,rgba(14,60,120,.93),rgba(4,10,24,.97) 75%)}
+#reveal.imp{background:radial-gradient(circle at 50% 42%,rgba(130,12,26,.94),rgba(22,3,8,.97) 75%)}
+#rvWord{font-family:'Bangers';font-size:clamp(52px,11vw,140px);color:#fff;line-height:1;text-shadow:6px 6px 0 rgba(0,0,0,.5);animation:rvpop .5s cubic-bezier(.2,1.6,.4,1)}
+#reveal.crew #rvWord{color:#9ef0c0}
+#reveal.imp #rvWord{color:#ff9aa4}
+#rvSub{font-weight:800;color:rgba(255,255,255,.85);max-width:44ch}
+#rvTeam{font-weight:900;color:var(--yellow);margin-top:4px}
+@keyframes rvpop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+
+#killBtn{position:absolute;bottom:24px;right:24px;width:90px;height:90px;border-radius:50%;
+  background:linear-gradient(135deg,#ff4d5e,#c51111);border:4px solid rgba(0,0,0,.5);
+  box-shadow:0 8px 0 #8f1626,0 16px 32px rgba(0,0,0,.6);cursor:pointer;z-index:7;
+  display:none;align-items:center;justify-content:center;font-size:48px;color:#fff;
+  transition:transform .1s,box-shadow .1s}
+#killBtn.show{display:flex}
+#killBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #8f1626}
+#killBtn.cooldown{opacity:.5;cursor:not-allowed}
+/* Menzilde kesilebilir hedef varken buton parlar */
+#killBtn.ready{box-shadow:0 8px 0 #8f1626,0 0 22px 5px rgba(255,77,94,.7),0 16px 32px rgba(0,0,0,.6);
+  animation:killpulse .95s ease-in-out infinite}
+#killBtn.ready::after{content:'Q';position:absolute;bottom:-30px;left:50%;transform:translateX(-50%);
+  font-family:'Bangers';font-size:17px;color:#ffb3ba;text-shadow:0 2px 0 #000;white-space:nowrap}
+@keyframes killpulse{50%{box-shadow:0 8px 0 #8f1626,0 0 38px 12px rgba(255,77,94,.95),0 16px 32px rgba(0,0,0,.6)}}
+#killBtn .cd{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);font-family:'Bangers';font-size:18px;color:#fff;text-shadow:0 2px 0 #000;white-space:nowrap}
+
+#deathScreen{position:fixed;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(circle at 50% 40%,rgba(139,0,0,.85),rgba(20,0,0,.95) 70%);text-align:center;padding:20px}
+#deathScreen.on{display:flex}
+#deathScreen h2{font-family:'Bangers';font-size:clamp(60px,12vw,160px);color:#ff4d5e;line-height:1;text-shadow:6px 6px 0 rgba(0,0,0,.6);animation:rvpop .6s cubic-bezier(.2,1.6,.4,1)}
+#deathScreen p{font-weight:800;color:rgba(255,255,255,.85);max-width:48ch;font-size:18px}
+
+#resultScreen{position:fixed;inset:0;z-index:58;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:20px}
+#resultScreen.on{display:flex}
+#resultScreen.crew{background:radial-gradient(circle at 50% 40%,rgba(14,60,120,.93),rgba(4,10,24,.97) 75%)}
+#resultScreen.imp{background:radial-gradient(circle at 50% 40%,rgba(130,12,26,.94),rgba(22,3,8,.97) 75%)}
+#resultScreen h2{font-family:'Bangers';font-size:clamp(56px,11vw,150px);line-height:1;text-shadow:6px 6px 0 rgba(0,0,0,.6);animation:rvpop .6s cubic-bezier(.2,1.6,.4,1)}
+#resultScreen.crew h2{color:#9ef0c0}
+#resultScreen.imp h2{color:#ff9aa4}
+#resultScreen .sub{font-weight:800;color:rgba(255,255,255,.85);font-size:20px;max-width:50ch}
+#resultScreen .players{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:12px 0}
+#resultScreen .p-card{background:rgba(10,17,32,.85);border:3px solid var(--line);border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:10px;min-width:180px}
+#resultScreen .p-card.dead{opacity:.5}
+#resultScreen .p-card canvas{flex-shrink:0}
+#resultScreen .p-card .info{font-weight:800;font-size:14px;text-align:left}
+#resultScreen .p-card .role{font-size:11px;font-weight:900;letter-spacing:.1em;margin-top:3px}
+#resultScreen .p-card .role.crew{color:var(--green)}
+#resultScreen .p-card .role.imp{color:var(--red)}

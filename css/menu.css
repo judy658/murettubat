@@ -1,0 +1,27 @@
+/* menu.css — ana menü ekranı, logo, görev panosu, ağ durumu */
+#scr-menu{padding:clamp(16px,3vw,44px)}
+.menu-wrap{max-width:1180px;margin:0 auto;min-height:100%;display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:28px;align-items:center}
+@media(max-width:900px){.menu-wrap{grid-template-columns:1fr;align-content:start;gap:18px;padding-bottom:48px}}
+.logo-tag{display:inline-block;background:rgba(0,0,0,.4);border:2px solid var(--line);padding:5px 14px;border-radius:999px;font-weight:900;font-size:11px;letter-spacing:.28em;color:var(--yellow)}
+h1.logo{font-family:'Bangers';font-size:clamp(64px,10.5vw,126px);line-height:.95;color:#fff;margin:10px 0 6px;text-shadow:5px 5px 0 rgba(255,77,94,.85),10px 10px 0 rgba(0,0,0,.45)}
+.logo-sub{color:var(--mut);max-width:54ch;font-size:15px;margin-bottom:16px}
+.actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.join-row{display:none;gap:8px;margin-top:-2px}
+.join-row.on{display:flex}
+.join-row input{flex:1;text-transform:uppercase;letter-spacing:.3em;font-family:'Bangers';font-size:22px;text-align:center}
+.sws{display:flex;flex-wrap:wrap;gap:9px}
+.sw{width:34px;height:34px;border-radius:10px;border:3px solid rgba(0,0,0,.45);cursor:pointer;transition:transform .12s}
+.sw:hover{transform:translateY(-3px) scale(1.06)}
+.sw.on{outline:3px solid #fff;outline-offset:2px;transform:scale(1.08)}
+.road{display:flex;flex-direction:column;gap:10px}
+.road-item{display:flex;gap:10px;align-items:flex-start;background:#0a1120;border:2px solid #1c2b4d;border-radius:12px;padding:10px 12px;font-size:14px}
+.road-item b{display:block;font-size:14px}
+.road-item span{color:var(--mut);font-size:13px}
+.badge-ok{color:var(--green);font-weight:900;white-space:nowrap}
+.menu-foot{max-width:1180px;margin:18px auto 0;display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--mut);font-size:12.5px;font-weight:700;flex-wrap:wrap}
+.net{display:inline-flex;align-items:center;gap:6px}
+.net i{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block}
+.net.ok i{background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2s infinite}
+.net.bad i{background:var(--red)}
+.net.wait i{background:var(--yellow);box-shadow:0 0 10px var(--yellow);animation:blink .8s infinite}
+@keyframes blink{50%{opacity:.45}}
