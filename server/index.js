@@ -371,7 +371,12 @@ function doKill(room, killerId, targetId) {
 
   room.killAt.set(k.id, now + KILL_COOLDOWN * 1000);
   v.dead = true;
-  broadcast(room, { t: 'killed', victim: v.id, killer: k.id });
+  // x/y: kurbanın ÖLDÜĞÜ konum. Sunucudaki son bilinen konum, istemcideki
+  // yarım kalmış çizim konumundan daha güvenilir; ceset burada kalacak.
+  broadcast(room, {
+    t: 'killed', victim: v.id, killer: k.id,
+    x: Math.round(v.x), y: Math.round(v.y),
+  });
   send(k.ws, { t: 'cd', ms: KILL_COOLDOWN * 1000 });
   checkEnd(room);
 }

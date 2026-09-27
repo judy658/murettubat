@@ -55,9 +55,15 @@ function update(dt){
   }
   if(S.mode==='solo')players.forEach(p=>{if(p.bot&&!p.dead)updateBot(p,dt)});
   players.forEach(p=>{
-    if(p===me||p.dead)return;
+    if(p===me)return;
     // Bozuk hedef (NaN) asla konuma işlenmesin; oyuncu yerinde kalsın.
     if(!Number.isFinite(p.tx)||!Number.isFinite(p.ty)){p.tx=p.x;p.ty=p.y;return}
+    /* Ceset sunucunun bildirdiği yerde durur. Eskiden ölü oyuncular
+       interpolasyondan da çıkarılıyordu; ceset ölüm anındaki YARIM KALMIŞ
+       konumda donup kalıyor ve kesildiği yere hiç gitmiyordu.
+       Katil menzil içinde olduğu için fark etmiyor, uzaktan izleyenler
+       cesedi yanlış yerde görüyordu. */
+    if(p.dead){p.x=p.tx;p.y=p.ty;return}
     const dx=p.tx-p.x,dy=p.ty-p.y;
     if(dx*dx+dy*dy>20736){p.x=p.tx;p.y=p.ty}
     else{p.x+=dx*Math.min(1,dt*18);p.y+=dy*Math.min(1,dt*18);}});

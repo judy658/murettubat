@@ -207,7 +207,52 @@ const SPOTS = [
   }
   ok('yatay hareket sonrasi hicbir oyuncuda NaN yok', nanBad.length === 0, nanBad.slice(0, 6).join(' | '));
 
-  // 7) Oyun ici konsol hatalari
+  // 8) CESET KONUMU: ölünce ceset kesildiği yerde durmalı. Eskiden ceset
+  //    ölüm anındaki yarım kalmış çizim konumunda donuyordu; katil menzil
+  //    içinde olduğu için fark etmiyor, uzaktakiler yanlış yerde görüyordu.
+  const roleList = [];
+  for (let i = 0; i < N; i++) roleList.push(await tabs[i].js('roles.get(myId)'));
+  const impIdx = roleList.indexOf('impostor');
+  ok('odada bir sahtekar var', impIdx >= 0, 'roller=' + JSON.stringify(roleList));
+
+  // Herkesi bir noktaya topla ki sahtekar menzilde bir kurban bulsun
+  for (let i = 0; i < N; i++) {
+    await tabs[i].js(`(()=>{const m=ME();m.x=190+(m.x%7);m.y=150+(m.y%5);m.moving=false;})()`);
+  }
+  await sleep(2000);
+
+  if (impIdx >= 0) {
+    const tgt = await tabs[impIdx].js('(()=>{const t=findKillTarget();return t?t.id:null})()');
+    ok('sagtekar menzilde kurban buldu', !!tgt);
+    if (tgt) {
+      const tj = JSON.stringify(tgt);
+      await tabs[impIdx].js(`(()=>{sendMsg({t:'kill',target:${tj}});})()`);
+      await sleep(700);
+
+      // Cesedin sunucu konumu (tx,ty) ve ÇİZİLEN konumu (x,y) her istemcide
+      // aynı olmalı; çizilen konum sunucu konumuna oturmuş olmalı.
+      const corpseBad = [];
+      let ref = null;
+      for (let i = 0; i < N; i++) {
+        const c = JSON.parse(await tabs[i].js(
+          `(()=>{const p=players.get(${tj});if(!p)return JSON.stringify({gone:1});` +
+          `return JSON.stringify({x:Math.round(p.x),y:Math.round(p.y),tx:Math.round(p.tx),ty:Math.round(p.ty),dead:!!p.dead})})()`));
+        if (c.gone) { corpseBad.push('T' + i + ': kurban listede yok'); continue; }
+        if (!c.dead) { corpseBad.push('T' + i + ': ceset isaretlenmedi'); continue; }
+        const drawn = Math.hypot(c.x - c.tx, c.y - c.ty);
+        if (drawn > 2) corpseBad.push(`T${i}: ceset sunucu yerinde degil cizilen(${c.x},${c.y}) hedef(${c.tx},${c.ty}) sapma=${drawn.toFixed(1)}`);
+        if (!ref) ref = { tx: c.tx, ty: c.ty };
+        else {
+          const d = Math.hypot(c.tx - ref.tx, c.ty - ref.ty);
+          if (d > 2) corpseBad.push(`T${i}: ceset baskalarindan farkli yerde (${c.tx},${c.ty}) != (${ref.tx},${ref.ty}) sapma=${d.toFixed(1)}`);
+        }
+      }
+      log.push('BILGI  cesedin sunucu konumu: ' + (ref ? `(${ref.tx},${ref.ty})` : '?') + ' — olum yeri: ' + (truth[tgt] ? `oyuncu ${truth[tgt].tab}` : tgt));
+      ok('her istemci ceseti ayni, kesildigi yerde goruyor', corpseBad.length === 0, corpseBad.slice(0, 6).join(' | '));
+    }
+  }
+
+  // 9) Oyun ici konsol hatalari
   const errs = tabs.flatMap(t => t.errors.map(e => t.tag + ':' + e)).filter(e => !/favicon|ERR_|Failed to load resource/.test(e));
   ok('hicbir sekmede JS hatasi yok', errs.length === 0, errs.slice(0, 4).join(' | '));
 

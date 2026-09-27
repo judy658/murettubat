@@ -146,7 +146,14 @@ function serverMsg(d){
 
     case 'killed':{
       const v=players.get(d.victim);
-      if(v)v.dead=true;
+      if(v){
+        v.dead=true;
+        /* Ceset KESİLDİĞİ yerde dursun. Sunucu kurbanın öldüğü konumu
+           bildiriyor; çizim konumu hemen oraya oturtulur, böylece herkes
+           cesedi aynı noktada görür. */
+        if(Number.isFinite(d.x)&&Number.isFinite(d.y)){v.tx=d.x;v.ty=d.y}
+        v.x=v.tx;v.y=v.ty;
+      }
       if(d.victim===myId)showDeathScreen();
       if(v)sysChat(v.name+' öldürüldü!');
       sfx.kill();
