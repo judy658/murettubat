@@ -45,7 +45,9 @@ function doReveal(){
     .map(([id])=>(players.get(id)||{}).name).filter(Boolean);
   $('#rvTeam').textContent=imp&&others.length?'Diğer sahtekâr: '+others.join(', '):'';
   const c=$('#rvBean').getContext('2d');c.clearRect(0,0,260,290);
-  drawBean(c,130,262,3.6,prefs.ci,1,false,1);
+  // Oyun içinde göründüğün renk sunucunun verdiği renktir; aynısı burada.
+  const my=ME();
+  drawBean(c,130,262,3.6,my?my.ci:prefs.ci,1,false,1);
   ov.className='on '+(imp?'imp':'crew');sfx[imp?'imp':'crew']();
   setTimeout(()=>ov.className='',3300);
   setTimeout(()=>controls=true,3200);

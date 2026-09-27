@@ -23,10 +23,12 @@ const ROOT = path.join(__dirname, '..');
 const PORT = process.env.PORT || 3000;
 
 /* --- Oyun ayarları (istemciyle aynı değerler) --- */
-const TICK_HZ = 15;          // durum yayın frekansı
+const TICK_HZ = 20;          // durum yayın frekansı
+const KEYFRAME_TICKS = 40;   // her N tick'te tam durum (≈2 sn) — kendini onarır
 const KILL_RANGE = 60;       // kill menzili (dünya birimi)
 const KILL_COOLDOWN = 25;    // saniye
 const MAX_PLAYERS = 8;
+const COLOR_COUNT = 10;      // js/core.js içindeki COLORS uzunluğu
 const MAX_ROOM_AGE_MS = 1000 * 60 * 60 * 2; // boş oda temizliği
 
 const SPAWN = { x: 190, y: 150 };
@@ -116,7 +118,11 @@ function newRoom() {
     gameOver: false,
     roles: new Map(),     // id -> 'impostor' | 'crew'
     killAt: new Map(),    // id -> cooldown bitiş zamanı
-    lastSent: new Map(),  // id -> son gönderilen alanlar (delta için)
+    // Konu (oyuncu) -> alıcı (istemci) -> son gönderilen alanlar.
+    // HER İSTEMCİ AYRI TUTULUR: eskiden tek bir "gönderildi" işareti
+    // paylaşılıyordu; bir istemcinin gönderimi kaçırırsa sunucu onu
+    // bir daha hiç göndermiyor ve o istemci kalıcı olarak bayat kalıyordu.
+    sent: new Map(),
     emptySince: Date.now(),
   };
 }
@@ -132,10 +138,22 @@ function clampInt(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/* Oda içinde kullanılmamış bir renk seç. İstediği renk boşsa onu ver,
+   doluysa boş olan ilk renge geç. Böylece aynı odada iki kişi aynı
+   rengi alamaz ve istemciler birbirini yanlış renkle görmez. */
+function pickColor(room, want, selfId) {
+  const used = new Set();
+  room.players.forEach(p => { if (p.id !== selfId) used.add(p.ci); });
+  const c = clampInt(want, 0, COLOR_COUNT - 1);
+  if (!used.has(c)) return c;
+  for (let i = 0; i < COLOR_COUNT; i++) if (!used.has(i)) return i;
+  return c;   // oda doluysa son çare
+}
+
 function addPlayer(room, ws, name, ci) {
   const id = 'p' + Math.random().toString(36).slice(2, 10);
   const p = {
-    id, ws, name: sanitizeName(name), ci: clampInt(ci, 0, 9),
+    id, ws, name: sanitizeName(name), ci: pickColor(room, ci, id),
     ready: false, joinedAt: Date.now(),
     x: SPAWN.x, y: SPAWN.y, dir: 1, angle: 0, moving: false, dead: false,
   };
@@ -193,7 +211,12 @@ function pushLobby(room) {
 /* Delta yayıncı — sadece değişen alanları yolla (bant genişliği için) */
 /* ------------------------------------------------------------------ */
 
+let tickNo = 0;
+
 function tick() {
+  tickNo++;
+  const keyframe = (tickNo % KEYFRAME_TICKS) === 0;
+
   for (const room of rooms.values()) {
     if (!room.players.size) {
       // Oda boş kaldıysa bir süre sonra temizle
@@ -204,26 +227,46 @@ function tick() {
 
     if (room.phase !== 'game') continue;
 
-    const delta = {};
-    room.players.forEach(p => {
-      const prev = room.lastSent.get(p.id) || {};
+    // Periyodik tam durum: kaçırılan her mesajı kendiliğinden onarır.
+    if (keyframe) {
+      const full = fullState(room);
+      room.players.forEach(p => send(p.ws, { t: 'st', p: full }));
+      room.sent.clear();   // "her şey iletildi" varsayımını sıfırla
+      continue;
+    }
+
+    // alıcıId -> { konuId: delta }
+    const out = new Map();
+
+    room.players.forEach(subject => {
       const next = {
-        n: p.name, c: p.ci,
-        x: Math.round(p.x), y: Math.round(p.y),
-        d: p.dir, m: p.moving ? 1 : 0, a: round2(p.angle),
-        k: p.dead ? 1 : 0,
+        n: subject.name, c: subject.ci,
+        x: Math.round(subject.x), y: Math.round(subject.y),
+        d: subject.dir, m: subject.moving ? 1 : 0, a: round2(subject.angle),
+        k: subject.dead ? 1 : 0,
       };
-      const d = {};
-      let changed = false;
-      for (const key in next) {
-        if (prev[key] !== next[key]) { d[key] = next[key]; changed = true; }
-      }
-      if (changed) {
-        delta[p.id] = d;
-        room.lastSent.set(p.id, next);
-      }
+      let per = room.sent.get(subject.id);
+      if (!per) { per = new Map(); room.sent.set(subject.id, per); }
+
+      room.players.forEach(receiver => {
+        const prev = per.get(receiver.id) || {};
+        const d = {};
+        let changed = false;
+        for (const key in next) {
+          if (prev[key] !== next[key]) { d[key] = next[key]; changed = true; }
+        }
+        if (!changed) return;
+        per.set(receiver.id, next);          // yalnızca ALICIYA göre işaretle
+        let m = out.get(receiver.id);
+        if (!m) { m = {}; out.set(receiver.id, m); }
+        m[subject.id] = d;
+      });
     });
-    if (Object.keys(delta).length) broadcast(room, { t: 'st', p: delta });
+
+    out.forEach((delta, receiverId) => {
+      const r = room.players.get(receiverId);
+      if (r) send(r.ws, { t: 'st', p: delta });
+    });
   }
 }
 setInterval(tick, 1000 / TICK_HZ);
@@ -265,7 +308,7 @@ function startGame(room) {
   room.phase = 'game';
   room.gameOver = false;
   room.killAt.clear();
-  room.lastSent.clear();
+  room.sent.clear();
   resetPositions(room);
 
   // ROLLERİ SIRRI TUT: her istemciye yalnızca kendi rolü gönderilir.
@@ -279,7 +322,9 @@ function startGame(room) {
           .map(([id]) => { const q = room.players.get(id); return q ? { id, n: q.name } : null; })
           .filter(Boolean)
       : [];
-    send(p.ws, { t: 'go', you: p.id, role: mine, mates, code: room.code });
+    // p: herkese tam oyuncu listesi. Lobide konum yayını olmadığı için
+    // istemciler diğer oyuncuları burada tanır; eksik kalırsa görünmezler.
+    send(p.ws, { t: 'go', you: p.id, role: mine, mates, code: room.code, p: fullState(room) });
   });
 }
 
@@ -305,7 +350,7 @@ function toLobby(room) {
   room.gameOver = false;
   room.roles.clear();
   room.killAt.clear();
-  room.lastSent.clear();
+  room.sent.clear();
   room.players.forEach(p => { p.ready = (p.id === room.hostId); p.dead = false; });
   broadcast(room, { t: 'back' });
   pushLobby(room);
@@ -386,9 +431,10 @@ wss.on('connection', ws => {
         break;
 
       case 'col': {
-        const ci = clampInt(msg.ci, 0, 9);
+        const ci = clampInt(msg.ci, 0, COLOR_COUNT - 1);
         const taken = [...room.players.values()].some(x => x.id !== p.id && x.ci === ci);
-        if (taken) send(ws, { t: 'colno' });
+        // Reddedildiğinde otoriter rengi de yolla ki istemci kaydetsin
+        if (taken) send(ws, { t: 'colno', ci: p.ci });
         else { p.ci = ci; pushLobby(room); }
         break;
       }
@@ -435,9 +481,11 @@ function leave(ws) {
   const p = room.players.get(ws.playerId);
   if (!p) return;
   room.players.delete(ws.playerId);
-  room.lastSent.delete(ws.playerId);
   room.killAt.delete(ws.playerId);
   room.roles.delete(ws.playerId);
+  // Ayrılan oyuncu hem konu hem alıcı olarak temizlenmeli
+  room.sent.delete(ws.playerId);
+  room.sent.forEach(per => per.delete(ws.playerId));
 
   if (!room.players.size) {
     rooms.delete(room.code);

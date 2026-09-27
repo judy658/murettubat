@@ -159,9 +159,54 @@ const open = b => b.ws.readyState === 1
   const { rooms, players } = await fetch('http://localhost:3000/rooms').then(r => r.json());
   log.push('BILGI  son durum: ' + JSON.stringify({ rooms, players }));
 
+  /* 14) RENK ÇAKIŞMASI: herkes aynı rengi isteyince sunucu benzersiz dağıtmalı.
+         Yoksa iki oyuncu aynı renkte görünür ve kim kimin olduğu anlaşılmaz. */
+  const c1 = bot(), c2 = bot(), c3 = bot();
+  await open(c1); await open(c2); await open(c3);
+  send(c1, { t: 'create', n: 'R1', ci: 0 }); await sleep(200);
+  send(c2, { t: 'join', code: c1.code, n: 'R2', ci: 0 }); await sleep(200);
+  send(c3, { t: 'join', code: c1.code, n: 'R3', ci: 0 }); await sleep(300);
+  const roomColors = c1.lastLb.ps.map(p => p.ci);
+  log.push('BILGI  aynı renk isteyen 3 oyuncunun renkleri: ' + JSON.stringify(roomColors));
+  ok('sunucu benzersiz renk dağıttı', new Set(roomColors).size === 3);
+  ok('ilk oyuncu istediği rengi korudu', c1.lastLb.ps[0].ci === 0);
+  send(c2, { t: 'col', ci: 0 }); await sleep(250);
+  ok('dolu renk değiştirme reddedildi', c2.msgs.some(m => m.t === 'colno'));
+  ok('red sonrası sunucu otoriter rengi yolladı',
+    !!(c2.msgs.find(m => m.t === 'colno') || {}).ci);
+
+  /* 15) 'go' tam oyuncu listesi taşımalı — lobide konum yayını olmadığı için
+         istemciler diğer oyuncuları ancak burada tanır. */
+  send(c2, { t: 'ready', v: true });
+  send(c3, { t: 'ready', v: true });
+  await sleep(200);
+  send(c1, { t: 'start' });
+  await sleep(300);
+  const go1 = c1.msgs.find(m => m.t === 'go');
+  ok("'go' tam oyuncu listesi içeriyor",
+    !!(go1 && go1.p && Object.keys(go1.p).length === 3));
+  ok("'go' listesinde herkesin adı ve rengi var",
+    !!(go1 && Object.values(go1.p).every(v => v.n && v.c !== undefined)));
+
+  /* 16) DELTA İNCELİĞİ: yalnızca x değiştiğinde sunucu y'ı yollamamalı.
+         Bu, istemcide ty=NaN ve dolayısıyla görünmez oyuncu hatasını
+         tetikleyen asıl senaryodur; protokol düzeltilirse test bunu doğrular. */
+  const selfId = c1.you;
+  const y0 = (go1.p[selfId] || {}).y;
+  c1.st = {}; c2.st = {};
+  send(c1, { t: 'p', x: 500, y: y0, d: 1, m: 1, a: 0 });
+  await sleep(400);
+  const dSelf = (c2.st[selfId] || {});
+  ok('yatay hareket delta\'sı konumu taşıdı', dSelf.x === 500);
+  ok('yatay hareket delta\'sı yalnızca değişen alanı içeriyor',
+    dSelf.y === undefined && dSelf.x !== undefined);
+
+  [c1, c2, c3].forEach(x => { try { x.ws.terminate(); } catch (e) {} });
+
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));
-  console.log('\nSONUC: ' + (log.length - failed.length - 2) + '/' + (log.length - 2) + ' gecti');
+  const info = log.filter(l => l.startsWith('BILGI'));
+  console.log('\nSONUC: ' + (log.length - failed.length - info.length) + '/' + (log.length - info.length) + ' gecti');
   [A, B, C, D, E].forEach(x => { try { x.ws.terminate(); } catch (e) {} });
   process.exit(failed.length ? 1 : 0);
 })().catch(e => { console.error('TEST HATASI:', e); process.exit(2); });

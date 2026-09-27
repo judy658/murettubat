@@ -75,6 +75,15 @@ function openSocket(){
   ws.onerror=()=>{setNetStat('bad')};
 }
 
+/* Sunucunun verdiği rengi yerel tercihe yaz.
+   Renk artık sunucunun otoritesinde: aynı odada iki kişi aynı rengi alamaz
+   ve oyuncu hangi renkle girdiyse gizli roller ekranında da O renk görünür. */
+function adoptServerColor(ci){
+  if(!Number.isFinite(ci)||ci===prefs.ci)return;
+  prefs.ci=ci;savePrefs();
+  document.querySelectorAll('#swatches .sw').forEach((x,j)=>x.classList.toggle('on',j===ci));
+}
+
 /* --- Sunucudan gelen mesajlar --- */
 function serverMsg(d){
   if(!d||!d.t)return;
@@ -86,6 +95,8 @@ function serverMsg(d){
       players.set(myId,{id:myId,name:sanitize(prefs.name),ci:prefs.ci,
         x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:false,bot:false,dead:false});
       applyState(d.p);
+      // Sunucu benzersiz renk dağıttı; yerelde de aynı renge geç.
+      adoptServerColor(players.get(myId).ci);
       LB=null;pushLobby(d.lobby);
       enterLobby();
       sysChat(d.t==='created'?'Oda kuruldu: '+d.code:'Odaya katıldın.');
@@ -104,6 +115,7 @@ function serverMsg(d){
 
     case 'colno':
       toast('Bu renk alınmış!','err');sfx.err();
+      if(d.ci!==undefined)adoptServerColor(d.ci);
       break;
 
     case 'st':
@@ -117,6 +129,9 @@ function serverMsg(d){
       roles.clear();
       roles.set(myId,d.role);
       (d.mates||[]).forEach(m=>roles.set(m.id,'impostor'));
+      // Önce tam listeyi işle (lobide konum yayını yok, oyuncular ancak
+      // burada tanınır), sonra doğma yerlerini dağıt.
+      applyState(d.p);
       resetPositions();enterGame();
       break;
     }
@@ -173,7 +188,13 @@ function applyState(map){
     if(i.a!==undefined)p.angle=i.a;
     if(i.k!==undefined)p.dead=!!i.k;
     if(id!==myId){
-      if(i.x!==undefined){p.tx=i.x;p.ty=i.y}
+      /* KRİTİK: x ve y BİRBİRİNDEN BAĞIMSIZ atanmalı.
+         Sunucu yalnızca DEĞİŞEN alanları yolluyor; yatay hareket eden
+         oyuncunun delta'sında x var, y yoktur. Eskiden "x geldiyse x ve y
+         ikisini de ata" yapılıyordu ve p.ty undefined oluyordu.
+         NaN koordinatta çizim yapılmadığı için oyuncu EKRANDAN KAYBOLUYORDU. */
+      if(Number.isFinite(i.x))p.tx=i.x;
+      if(Number.isFinite(i.y))p.ty=i.y;
     }
   }
 }

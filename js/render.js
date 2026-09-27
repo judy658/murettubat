@@ -54,10 +54,13 @@ function update(dt){
       sendMsg({t:'p',x:Math.round(me.x),y:Math.round(me.y),d:me.dir,m:me.moving?1:0,a:me.angle});}
   }
   if(S.mode==='solo')players.forEach(p=>{if(p.bot&&!p.dead)updateBot(p,dt)});
-  players.forEach(p=>{if(p===me||p.dead)return;
+  players.forEach(p=>{
+    if(p===me||p.dead)return;
+    // Bozuk hedef (NaN) asla konuma işlenmesin; oyuncu yerinde kalsın.
+    if(!Number.isFinite(p.tx)||!Number.isFinite(p.ty)){p.tx=p.x;p.ty=p.y;return}
     const dx=p.tx-p.x,dy=p.ty-p.y;
-    if(dx*dx+dy*dy>14400){p.x=p.tx;p.y=p.ty}
-    else{p.x+=dx*Math.min(1,dt*12);p.y+=dy*Math.min(1,dt*12);}});
+    if(dx*dx+dy*dy>20736){p.x=p.tx;p.y=p.ty}
+    else{p.x+=dx*Math.min(1,dt*18);p.y+=dy*Math.min(1,dt*18);}});
   if(me){cam.x=lerp(cam.x,me.x,Math.min(1,dt*6));cam.y=lerp(cam.y,me.y,Math.min(1,dt*6));}
   const hw=vw/2/view.sc,hh=vh/2/view.sc,minX=-PAD,maxX=WORLD.w+PAD,minY=-PAD,maxY=WORLD.h+PAD;
   cam.x=(maxX-minX)<=hw*2?(minX+maxX)/2:clamp(cam.x,minX+hw,maxX-hw);
@@ -96,6 +99,7 @@ function render(){
   const impNames=new Set([...roles.entries()].filter(([id,r])=>r==='impostor').map(([id])=>id));
   const meImp=roles.get(myId)==='impostor';
   for(const p of list){
+    if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;   // NaN asla çizilmez
     if(me&&!me.dead&&p.id!==myId&&!p.dead&&!isInView(me,p))continue;
     drawBean(gx,p.x,p.y,1,p.ci,p.dir,p.moving,T+(p.bob||0),p.dead);
     if(!p.dead){
