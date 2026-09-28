@@ -15,5 +15,15 @@ const sfx={
   kill:()=>{tone(180,.15,'sawtooth',.15);tone(120,.2,'sawtooth',.12,.08);tone(80,.3,'sawtooth',.1,.15)},
   death:()=>{tone(200,.3,'sawtooth',.12);tone(150,.4,'sawtooth',.1,.1);tone(100,.5,'sawtooth',.08,.2)},
   win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,'triangle',.1,i*.15)),
-  lose:()=>[400,350,300,250].forEach((f,i)=>tone(f,.4,'sawtooth',.1,i*.2))};
+  lose:()=>[400,350,300,250].forEach((f,i)=>tone(f,.4,'sawtooth',.1,i*.2)),
+  /* Toplantı: hoparlör sesi — üç vuruş */
+  meet:()=>{tone(392,.14,'square',.1);tone(392,.14,'square',.1,.2);tone(294,.3,'square',.12,.4)},
+  /* Ceset rapor edildi */
+  report:()=>{tone(660,.08,'square',.09);tone(880,.1,'square',.09,.09);tone(1180,.16,'square',.08,.18)},
+  /* Oy kullanıldı */
+  vote:()=>tone(740,.07,'square',.07),
+  /* Uzaya atılma: rüzgâr + patlama */
+  eject:()=>{for(let i=0;i<7;i++)tone(180+i*90,.5,'sine',.05,i*.07);
+    tone(70,.7,'sawtooth',.12,.55)},
+};
 function setSnd(){[$('#sndBtn'),$('#sndBtn2')].forEach(b=>b.textContent=prefs.muted?'🔇':'🔊')}

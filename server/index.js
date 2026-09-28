@@ -27,6 +27,9 @@ const TICK_HZ = 20;          // durum yayın frekansı
 const KEYFRAME_TICKS = 40;   // her N tick'te tam durum (≈2 sn) — kendini onarır
 const KILL_RANGE = 60;       // kill menzili (dünya birimi)
 const KILL_COOLDOWN = 25;    // saniye
+const REPORT_RANGE = 70;     // cesedi raporlamak için gereken yakınlık
+const MEET_SECONDS = 90;     // toplantıda tartışma süresi
+const EJECT_MS = 11000;      // animasyon (6.4 sn) + rol açıklamasının okunması için pay
 const MAX_PLAYERS = 8;
 const COLOR_COUNT = 10;      // js/core.js içindeki COLORS uzunluğu
 const MAX_ROOM_AGE_MS = 1000 * 60 * 60 * 2; // boş oda temizliği
@@ -113,11 +116,13 @@ function newRoom() {
     code: genCode(),
     players: new Map(),   // id -> player
     hostId: null,
-    phase: 'lobby',       // 'lobby' | 'game'
+    phase: 'lobby',       // 'lobby' | 'game' | 'meeting'
     started: false,
     gameOver: false,
     roles: new Map(),     // id -> 'impostor' | 'crew'
     killAt: new Map(),    // id -> cooldown bitiş zamanı
+    meeting: null,        // {reporter,victim,endsAt,votes,winner,finishing}
+    reported: new Set(),  // raporlanmış cesetler (iki kez raporlanamaz)
     // Konu (oyuncu) -> alıcı (istemci) -> son gönderilen alanlar.
     // HER İSTEMCİ AYRI TUTULUR: eskiden tek bir "gönderildi" işareti
     // paylaşılıyordu; bir istemcinin gönderimi kaçırırsa sunucu onu
@@ -155,7 +160,7 @@ function addPlayer(room, ws, name, ci) {
   const p = {
     id, ws, name: sanitizeName(name), ci: pickColor(room, ci, id),
     ready: false, joinedAt: Date.now(),
-    x: SPAWN.x, y: SPAWN.y, dir: 1, angle: 0, moving: false, dead: false,
+    x: SPAWN.x, y: SPAWN.y, dir: 1, angle: 0, moving: false, dead: false, gone: false,
   };
   room.players.set(id, p);
   if (!room.hostId) room.hostId = id;
@@ -182,6 +187,8 @@ function fullState(room) {
       n: p.name, c: p.ci,
       x: Math.round(p.x), y: Math.round(p.y),
       d: p.dir, m: p.moving ? 1 : 0, a: round2(p.angle), k: p.dead ? 1 : 0,
+      r: room.reported.has(p.id) ? 1 : 0,
+      v: p.gone ? 1 : 0,
     };
   });
   return out;
@@ -225,6 +232,13 @@ function tick() {
       continue;
     }
 
+    // Toplantı sürerken konum yayını yapılmaz; sadece süre kontrol edilir.
+    if (room.phase === 'meeting') {
+      const m = room.meeting;
+      if (m && !m.finishing && Date.now() >= m.endsAt) resolveMeeting(room);
+      continue;
+    }
+
     if (room.phase !== 'game') continue;
 
     // Periyodik tam durum: kaçırılan her mesajı kendiliğinden onarır.
@@ -244,6 +258,8 @@ function tick() {
         x: Math.round(subject.x), y: Math.round(subject.y),
         d: subject.dir, m: subject.moving ? 1 : 0, a: round2(subject.angle),
         k: subject.dead ? 1 : 0,
+        r: room.reported.has(subject.id) ? 1 : 0,
+        v: subject.gone ? 1 : 0,
       };
       let per = room.sent.get(subject.id);
       if (!per) { per = new Map(); room.sent.set(subject.id, per); }
@@ -286,13 +302,16 @@ function assignRoles(room) {
   ids.forEach((id, i) => room.roles.set(id, i < impCount ? 'impostor' : 'crew'));
 }
 
+/* Herkesi kafeterya spotuna taşır. DİKKAT: ölüm durumuna dokunmaz —
+   toplantı sırasında da çağrılır, orada hayaletler hayalet olarak kalır. */
 function resetPositions(room) {
   let i = 0;
   room.players.forEach(p => {
     const o = SPAWN_OFFSETS[i++ % SPAWN_OFFSETS.length];
     p.x = SPAWN.x + o[0];
     p.y = SPAWN.y + o[1];
-    p.dead = false;
+    p.moving = false;
+    p.angle = 0;
   });
 }
 
@@ -309,6 +328,9 @@ function startGame(room) {
   room.gameOver = false;
   room.killAt.clear();
   room.sent.clear();
+  room.reported.clear();
+  // Yeni oyun: herkes dirilir, uzaya atılanlar geri gelir.
+  room.players.forEach(p => { p.dead = false; p.gone = false; p.killed = false; });
   resetPositions(room);
 
   // ROLLERİ SIRRI TUT: her istemciye yalnızca kendi rolü gönderilir.
@@ -337,7 +359,7 @@ function endGame(room, winner) {
 
 function checkEnd(room) {
   if (room.gameOver || !room.started) return;
-  const alive = [...room.players.values()].filter(p => !p.dead);
+  const alive = [...room.players.values()].filter(p => !p.dead && !p.gone);
   const imp = alive.filter(p => room.roles.get(p.id) === 'impostor').length;
   const crew = alive.filter(p => room.roles.get(p.id) === 'crew').length;
   if (imp === 0) return endGame(room, 'crew');
@@ -351,7 +373,12 @@ function toLobby(room) {
   room.roles.clear();
   room.killAt.clear();
   room.sent.clear();
-  room.players.forEach(p => { p.ready = (p.id === room.hostId); p.dead = false; });
+  room.meeting = null;
+  room.reported.clear();
+  room.players.forEach(p => {
+    p.ready = (p.id === room.hostId);
+    p.dead = false; p.gone = false; p.killed = false;
+  });
   broadcast(room, { t: 'back' });
   pushLobby(room);
 }
@@ -360,7 +387,7 @@ function doKill(room, killerId, targetId) {
   const k = room.players.get(killerId);
   const v = room.players.get(targetId);
   if (!k || !v || room.gameOver || !room.started) return;
-  if (k.dead || v.dead || k.id === v.id) return;
+  if (k.dead || v.dead || k.gone || v.gone || k.id === v.id) return;
   if (room.roles.get(k.id) !== 'impostor') return;
 
   const now = Date.now();
@@ -382,8 +409,168 @@ function doKill(room, killerId, targetId) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Raporlama ve toplantı                                               */
+/* ------------------------------------------------------------------ */
+
+/* Toplantı ekranının her istemciye göre içeriği. OY GİZLİDİR: kimin
+   kime oy verdiği yalnızca sonuçta açıklanır, herkes sadece "oy kullandı"
+   bilgisini görür — Among Us'taki gibi. */
+function meetingPayload(room) {
+  const m = room.meeting;
+  return {
+    t: 'meet',
+    reporter: m.reporter,
+    victim: m.victim,
+    endsAt: m.endsAt,
+    seconds: MEET_SECONDS,
+    players: [...room.players.values()].map(p => ({
+      id: p.id, n: p.name, ci: p.ci,
+      dead: p.dead, voted: m.votes.has(p.id),
+    })),
+    p: fullState(room),
+  };
+}
+
+function doReport(room, reporterId, victimId) {
+  if (room.phase !== 'game' || room.gameOver || room.meeting) return;
+  const r = room.players.get(reporterId);
+  const v = room.players.get(victimId);
+  if (!r || !v) return;
+  if (r.dead || r.gone) return;                   // hayalet rapor edemez
+  if (!v.dead || v.gone) return;                  // yalnızca CESET raporlanır
+  if (room.reported.has(victimId)) return;       // aynı ceset iki kez raporlanamaz
+  if (Math.hypot(r.x - v.x, r.y - v.y) > REPORT_RANGE) return;
+
+  room.reported.add(victimId);
+  room.phase = 'meeting';
+  room.sent.clear();
+  resetPositions(room);                          // herkes kantine ışınlanır
+  room.meeting = {
+    reporter: reporterId,
+    victim: victimId,
+    endsAt: Date.now() + MEET_SECONDS * 1000,
+    votes: new Map(),
+    winner: null,
+    finishing: false,
+  };
+
+  room.players.forEach(p => {
+    send(p.ws, Object.assign(meetingPayload(room), { you: p.id, myVote: null }));
+  });
+}
+
+function pushVotes(room) {
+  const m = room.meeting;
+  if (!m) return;
+  room.players.forEach(p => {
+    send(p.ws, {
+      t: 'votes',
+      endsAt: m.endsAt,
+      players: [...room.players.values()].map(q => ({ id: q.id, voted: m.votes.has(q.id) })),
+      myVote: m.votes.get(p.id) || null,
+    });
+  });
+}
+
+function castVote(room, voterId, targetId) {
+  const m = room.meeting;
+  if (!m || room.phase !== 'meeting' || m.finishing) return;
+  const v = room.players.get(voterId);
+  if (!v) return;
+
+  let t = targetId === 'skip' ? 'skip' : String(targetId == null ? '' : targetId);
+  if (t !== 'skip') {
+    const target = room.players.get(t);
+    if (!target || target.id === voterId) return;   // kendine oy verilemez
+    t = target.id;
+  }
+
+  m.votes.set(voterId, t);      // oy değiştirilebilir
+  pushVotes(room);
+
+  // HERKES OY KULLANDIYSA beklemeden sonuca geç
+  if (room.players.size && [...room.players.values()].every(q => m.votes.has(q.id))) {
+    resolveMeeting(room);
+  }
+}
+
+function resolveMeeting(room) {
+  const m = room.meeting;
+  if (!m || m.finishing) return;
+  m.finishing = true;
+
+  const tally = new Map();
+  m.votes.forEach(t => tally.set(t, (tally.get(t) || 0) + 1));
+
+  let best = 'skip', bestN = -1, tied = false;
+  for (const [t, n] of tally) {
+    if (n > bestN) { best = t; bestN = n; tied = false; }
+    else if (n === bestN) tied = true;
+  }
+  // Berelik varsa kimse atılmaz
+  if (tied || bestN <= 0) best = 'skip';
+
+  const victim = best === 'skip' ? null : room.players.get(best);
+  const role = victim ? room.roles.get(best) : null;
+  m.ejectedId = victim ? victim.id : null;
+
+  // Dışarı atılan sahtekârsa mürettebat kazanır
+  if (victim && role === 'impostor') m.winner = 'crew';
+
+  const detail = [...room.players.values()].map(p => ({
+    id: p.id, n: p.name, ci: p.ci, dead: p.dead,
+    vote: m.votes.get(p.id) || null,
+  }));
+
+  broadcast(room, {
+    t: 'eject',
+    id: victim ? victim.id : null,
+    name: victim ? victim.name : null,
+    ci: victim ? victim.ci : 0,
+    role: role,
+    skipped: !victim,
+    votes: detail,
+    winner: m.winner,
+  });
+
+  setTimeout(() => finalizeMeeting(room), EJECT_MS);
+}
+
+function finalizeMeeting(room) {
+  const m = room.meeting;
+  if (!m) return;
+  room.meeting = null;
+
+  if (m.winner) { endGame(room, m.winner); return; }
+
+  /* Dışarı atılan oyuncu sahneden tamamen kalkar: artık hareket edemez,
+     raporlanamaz ve hayatta sayılmaz. */
+  if (m.ejectedId) {
+    room.reported.add(m.ejectedId);
+    const ex = room.players.get(m.ejectedId);
+    if (ex) { ex.dead = true; ex.deadAt = Date.now(); ex.killed = false; ex.gone = true; }
+  }
+
+  const alive = [...room.players.values()].filter(p => !p.dead && !p.gone);
+  const imp = alive.filter(p => room.roles.get(p.id) === 'impostor').length;
+  const crew = alive.filter(p => room.roles.get(p.id) === 'crew').length;
+  if (imp === 0) return endGame(room, 'crew');
+  if (imp >= crew) return endGame(room, 'imp');
+
+  // Oyun sürüyor: herkes kantinden devam eder.
+  room.phase = 'game';
+  room.sent.clear();
+  resetPositions(room);
+  const full = fullState(room);
+  room.players.forEach(p => {
+    send(p.ws, { t: 'resume', you: p.id, myVote: null, p: full });
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* WebSocket bağlantıları                                             */
 /* ------------------------------------------------------------------ */
+
 
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -453,7 +640,7 @@ wss.on('connection', ws => {
         break;
 
       case 'p': {
-        if (room.phase !== 'game' || p.dead) break;
+        if (room.phase !== 'game' || p.dead || p.gone) break;
         p.x = Number(msg.x) || 0;
         p.y = Number(msg.y) || 0;
         p.dir = msg.d === -1 ? -1 : 1;
@@ -464,6 +651,14 @@ wss.on('connection', ws => {
 
       case 'kill':
         if (room.phase === 'game') doKill(room, p.id, String(msg.target || ''));
+        break;
+
+      case 'report':
+        doReport(room, p.id, String(msg.body || ''));
+        break;
+
+      case 'vote':
+        castVote(room, p.id, msg.target);
         break;
 
       case 'c': {
@@ -491,6 +686,11 @@ function leave(ws) {
   // Ayrılan oyuncu hem konu hem alıcı olarak temizlenmeli
   room.sent.delete(ws.playerId);
   room.sent.forEach(per => per.delete(ws.playerId));
+  // Toplantı sürerken ayrılırsa oyu düşer, kalanlar yine sonuç alabilir
+  if (room.meeting) {
+    room.meeting.votes.delete(ws.playerId);
+    if (!room.meeting.finishing) pushVotes(room);
+  }
 
   if (!room.players.size) {
     rooms.delete(room.code);

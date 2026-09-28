@@ -10,17 +10,20 @@ function assignRoles(){
   const impCount=ids.length>=7?2:1;
   ids.forEach((id,i)=>roles.set(id,i<impCount?'impostor':'crew'));
 }
-function resetPositions(){
-  const offs=[[-60,-40],[0,-50],[60,-40],[-60,40],[0,50],[60,40],[-30,0],[30,10]];let i=0;
-  players.forEach(p=>{const o=offs[i++%offs.length];p.x=p.tx=SPAWN.x+o[0];p.y=p.ty=SPAWN.y+o[1];p.dead=false;});
-}
+      /* Herkesi kafeterya spotuna taşır. Ölüm durumuna dokunmaz — toplantı
+         sırasında da çağrılır, hayaletler hayalet olarak kalır. */
+      function resetPositions(){
+        const offs=[[-60,-40],[0,-50],[60,-40],[-60,40],[0,50],[60,40],[-30,0],[30,10]];let i=0;
+        players.forEach(p=>{const o=offs[i++%offs.length];p.x=p.tx=SPAWN.x+o[0];p.y=p.ty=SPAWN.y+o[1];p.moving=false;});
+      }
 function startSolo(){
   S.mode='solo';myId='me';started=true;S.phase='game';players.clear();roles.clear();gameOver=false;killCooldown=0;
-  players.set('me',{id:'me',name:sanitize(prefs.name),ci:prefs.ci,x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:true,bot:false,dead:false});
+  closeMeeting();closeEject();
+  players.set('me',{id:'me',name:sanitize(prefs.name),ci:prefs.ci,x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:true,bot:false,dead:false,reported:false,gone:false});
   const used=new Set([prefs.ci]);
   ['Nova','Mercan','Arda-7'].forEach(n=>{let ci;do{ci=Math.floor(Math.random()*COLORS.length)}while(used.has(ci));used.add(ci);
     const rooms=AREAS.filter(a=>a.n);const r=pick(rooms);
-    const b={id:'bot'+n,name:n,ci,x:rand(r.x+30,r.x+r.w-30),y:rand(r.y+30,r.y+r.h-30),dir:1,angle:0,moving:false,bot:true,wait:0,tx:0,ty:0,bob:rand(0,9),dead:false};
+    const b={id:'bot'+n,name:n,ci,x:rand(r.x+30,r.x+r.w-30),y:rand(r.y+30,r.y+r.h-30),dir:1,angle:0,moving:false,bot:true,wait:0,tx:0,ty:0,bob:rand(0,9),dead:false,reported:false,gone:false};
     botTarget(b);players.set(b.id,b);});
   assignRoles();resetPositions();enterGame();
 }
@@ -72,6 +75,7 @@ function tryKill(){
   const me=ME();
   if(!me||me.dead||gameOver)return;
   if(!isImpostor())return;
+  if(meeting){toast('Toplantı sürüyor','err');return}
   if(killCooldown>0){toast('Kill cooldown: '+Math.ceil(killCooldown)+'s','err');return}
   const closest=findKillTarget();
   if(!closest){toast('Hedef menzilde değil','err');return}

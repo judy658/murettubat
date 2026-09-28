@@ -93,7 +93,7 @@ function serverMsg(d){
       myId=d.you;roomCode=d.code;joining=false;
       players.clear();roles.clear();
       players.set(myId,{id:myId,name:sanitize(prefs.name),ci:prefs.ci,
-        x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:false,bot:false,dead:false});
+        x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:false,bot:false,dead:false,reported:false,gone:false});
       applyState(d.p);
       // Sunucu benzersiz renk dağıttı; yerelde de aynı renge geç.
       adoptServerColor(players.get(myId).ci);
@@ -141,7 +141,9 @@ function serverMsg(d){
       break;
 
     case 'c':
-      chatRow(curMsgs(),{n:d.n,ci:d.ci,m:d.m});sfx.chat();
+      chatRow(curMsgs(),{n:d.n,ci:d.ci,m:d.m});
+      if(meeting)chatRow($('#mtMsgs'),{n:d.n,ci:d.ci,m:d.m});
+      sfx.chat();
       break;
 
     case 'killed':{
@@ -164,7 +166,32 @@ function serverMsg(d){
       killCooldown=(d.ms||0)/1000;
       break;
 
+    /* --- Raporlama / toplantı --- */
+    case 'meet':
+      openMeeting(d);
+      break;
+
+    case 'votes':
+      updateVotes(d);
+      break;
+
+    case 'eject':
+      playEject(d);
+      break;
+
+    case 'resume':
+      closeEject();closeMeeting();
+      applyState(d.p);
+      snapSelfTo(d.p);
+      killCooldown=0;controls=true;
+      sysChat('Toplantı bitti — oyuna dönüyorsun');
+      break;
+
     case 'end':
+      closeEject();closeMeeting();
+      /* gameOver çevrimiçi oyunda sunucudan gelir; rapor/kill butonları
+         ve hareket bu baytla kapanır. */
+      gameOver=true;controls=false;
       if(d.roles)roles.clear();
       if(d.roles)for(const id in d.roles)roles.set(id,d.roles[id]);
       showResultScreen(d.winner);
@@ -184,7 +211,7 @@ function applyState(map){
       p={id,name:i.n||'?',ci:i.c||0,
          x:i.x!=null?i.x:SPAWN.x,y:i.y!=null?i.y:SPAWN.y,
          tx:i.x!=null?i.x:SPAWN.x,ty:i.y!=null?i.y:SPAWN.y,
-         dir:1,angle:0,moving:false,ready:false,bot:false,dead:false};
+         dir:1,angle:0,moving:false,ready:false,bot:false,dead:false,reported:false,gone:false};
       players.set(id,p);
       updateCount();   // yeni oyuncu katıldı → HUD sayacı güncellensin
     }
@@ -194,6 +221,8 @@ function applyState(map){
     if(i.m!==undefined)p.moving=!!i.m;
     if(i.a!==undefined)p.angle=i.a;
     if(i.k!==undefined)p.dead=!!i.k;
+    if(i.r!==undefined)p.reported=!!i.r;   // raporlanmış ceset tekrar raporlanamaz
+    if(i.v!==undefined)p.gone=!!i.v;       // uzaya atıldı → sahnede hiç çizilmez
     if(id!==myId){
       /* KRİTİK: x ve y BİRBİRİNDEN BAĞIMSIZ atanmalı.
          Sunucu yalnızca DEĞİŞEN alanları yolluyor; yatay hareket eden
@@ -210,7 +239,8 @@ function leaveAll(){
   leaving=true;closeSocket();
   players.clear();roles.clear();started=false;LB=null;gameOver=false;roomCode=null;
   S.phase='menu';S.mode=null;controls=false;
-  $('#lbMsgs').innerHTML='';$('#gMsgs').innerHTML='';
+  closeMeeting();closeEject();
+  $('#lbMsgs').innerHTML='';$('#gMsgs').innerHTML='';$('#mtMsgs').innerHTML='';
   $('#deathScreen').classList.remove('on');$('#resultScreen').className='';
   show('scr-menu');leaving=false;
   setNetStat('');

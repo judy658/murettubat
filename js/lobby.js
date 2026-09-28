@@ -37,7 +37,8 @@ function renderLobby(){
     $('#startHint').textContent=LB.ps.length<2?'En az 2 oyuncu gerekli':nr?nr+' oyuncu hazır değil':'Herkes hazır — fırlat! 🚀';
   }else $('#startHint').textContent="Host'un başlatması bekleniyor…";}
 function toLobbyAll(){started=false;S.phase='lobby';gameOver=false;killCooldown=0;
-  players.forEach(p=>{p.ready=false;p.dead=false});roles.clear();controls=false;
+  closeMeeting();closeEject();
+  players.forEach(p=>{p.ready=false;p.dead=false;p.gone=false;p.reported=false});roles.clear();controls=false;
   $('#deathScreen').classList.remove('on');$('#resultScreen').className='';
   show('scr-lobby');renderLobby();
   sysChat('Oyun bitti, lobiye dönüldü.');}

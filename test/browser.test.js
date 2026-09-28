@@ -205,13 +205,146 @@ class Tab {
   ok('kurban ölüm ekranını gördü', (await CREW.js(`document.querySelector('#deathScreen').classList.contains('on')`)) === true);
   ok('sahtekâr cooldown aldı', (await IMP.js(`killCooldown>0`)) === true);
 
-  /* 7) konsol hataları */
+  /* 7) RAPORLAMA + TOPLANTI + OYLAMA (4 oyunculu yeni oda) */
+  const M = [];
+  for (let i = 0; i < 4; i++) {
+    const t = await Tab.open(SITE, 'M' + (i + 1));
+    await t.until('document.readyState==="complete"', 25000, t.tag + ' sayfa yuklenmedi');
+    await t.until('typeof createRoom==="function"', 25000, t.tag + ' hazir degil');
+    await t.js(`(()=>{const n=document.querySelector('#nameIn');n.value='M'+(${i}+1);n.dispatchEvent(new Event('input'));})()`);
+    M.push(t);
+  }
+  await M[0].js(`document.querySelector('#createBtn').click()`);
+  await M[0].until('S.phase==="lobby" && !!roomCode', 20000, 'M1 oda kuramadi');
+  const mcode = await M[0].js(`roomCode`);
+  for (let i = 1; i < 4; i++) {
+    // joinGo butonuna basmak prefs.name'i girdiden okur; doğrudan joinRoom()
+    // çağırmak ismi göndermezdi.
+    await M[i].js(`(()=>{document.querySelector('#joinCode').value='${mcode}';document.querySelector('#joinGo').click();})()`);
+    await M[i].until('S.phase==="lobby" && !!roomCode', 20000, 'M' + (i + 1) + ' katilamadi');
+  }
+  for (let i = 1; i < 4; i++) await M[i].js(`(()=>{document.querySelector('#readyBtn').click();})()`);
+  await sleep(400);
+  await M[0].js(`document.querySelector('#startBtn').click()`);
+  for (const t of M) await t.until('S.phase==="game" && !!roles.get(myId)', 20000, t.tag + ' oyunu gormedi');
+  ok('4 oyunculu oyun basladi', (await M[0].js(`players.size`)) === 4);
+
+  const mImp = (await M[0].js(`roles.get(myId)`)) === 'impostor' ? M[0]
+    : (await M[1].js(`roles.get(myId)`)) === 'impostor' ? M[1]
+    : (await M[2].js(`roles.get(myId)`)) === 'impostor' ? M[2] : M[3];
+  const mCrew = M.filter(t => t !== mImp);
+  ok('tam olarak bir sagtekar var', (await mImp.js(`roles.get(myId)`)) === 'impostor');
+
+  // Rol açılışı bitene kadar bekle: kontroller kapalıyken konum gönderilmiyor.
+  for (const t of M) await t.until('controls===true', 30000, t.tag + ' rol acilisi bitmedi');
+  ok('herkes kendi adini gormus', (await M[0].js(`[...new Set([...players.values()].map(p=>p.name))].length`)) === 4,
+    await M[0].js(`JSON.stringify([...players.values()].map(p=>p.name))`));
+
+  // Sahtekâr bir mürettebatı öldürsün. HANGİ oyuncunun öleceğini
+  // varsaymıyoruz: findKillTarget() en yakını seçer, ölü olan sekmeyi
+  // yoklayarak buluyoruz.
+  const mIds = await Promise.all(M.map(t => t.js(`myId`)));
+  const impId = await mImp.js(`myId`);
+  const tgtId = await mImp.js(`[...players.values()].find(p=>p.id!==myId).id`);
+  await mImp.js(`(()=>{const me=ME();const o=players.get(${JSON.stringify(tgtId)});me.x=me.tx=o.x+15;me.y=me.ty=o.y;})()`);
+  await mImp.until('!!findKillTarget()', 8000, 'sagtekar menzilde hedef bulamadi');
+  await sleep(400);
+  await mImp.js(`tryKill()`);
+
+  let VICTIM = null;
+  for (let i = 0; i < 80 && !VICTIM; i++) {
+    for (const t of mCrew) { if ((await t.js(`ME().dead`)) === true) { VICTIM = t; break; } }
+    if (!VICTIM) await sleep(250);
+  }
+  const REPORTER = mCrew.find(t => t !== VICTIM);
+  ok('rapor testi icin ceset olustu', !!VICTIM, 'oluler=' + mCrew.map(t => t.tag).join(','));
+  ok('raporlayan hayatta kaldi', !!(REPORTER && (await REPORTER.js(`ME().dead`)) === false));
+
+  // Uzaklaşınca rapor butonu görünmemeli
+  await REPORTER.js(`(()=>{const me=ME();me.x=1000;me.y=640;})()`);
+  await sleep(500);
+  ok('uzakta rapor butonu parlamiyor',
+    !/ready/.test(await REPORTER.js(`document.querySelector('#reportBtn').className`)));
+  // Cesede yaklaşınca görünmeli
+  await REPORTER.js(`(()=>{const me=ME();const c=[...players.values()].find(p=>p.id!==myId&&p.dead);me.x=c.x+20;me.y=c.y+20;})()`);
+  await REPORTER.until(`/ready/.test(document.querySelector('#reportBtn').className)`, 8000, 'rapor butonu parladi');
+  ok('cesede yakinlasinca rapor butonu parladi', true);
+  ok('rapor butonu gorunur', /show/.test(await REPORTER.js(`document.querySelector('#reportBtn').className`)));
+  ok('rapor butonu olu hedef buldu', !!(await REPORTER.js(`!!findReportTarget()`)));
+  ok('raporlanmis olmayan ceset secildi', (await REPORTER.js(`(()=>{const t=findReportTarget();return t&&t.dead&&!t.reported})()`)) === true);
+
+  // Raporla -> toplantı açılmalı
+  await REPORTER.js(`tryReport()`);
+  for (const t of M) await t.until(`!!meeting`, 12000, t.tag + ' toplanti acmadi');
+  ok('rapor sonrasi toplanti ekrani acildi',
+    (await REPORTER.js(`document.querySelector('#meetingScreen').classList.contains('on')`)) === true);
+  ok('herkes toplanti ekraninda', (await Promise.all(M.map(t => t.js(`!!meeting`)))).every(Boolean));
+  ok('toplanti sirasinda kontroller kilitli', (await REPORTER.js(`controls===false`)) === true);
+  ok('toplanti basligi raporlayan ve kurbani gosteriyor',
+    /M\d/.test(await REPORTER.js(`document.querySelector('#mtTitle').textContent`)),
+    await REPORTER.js(`document.querySelector('#mtTitle').textContent`));
+  const tsec = await REPORTER.js(`Math.ceil((meeting.endsAt-Date.now())/1000)`);
+  ok('toplanti sayaci 90 saniyeden basladi', tsec > 80 && tsec <= 90, 'saniye=' + tsec);
+  ok('oy kartlari cizildi', (await REPORTER.js(`document.querySelectorAll('#mtGrid .mt-card').length`)) === 4);
+  ok('hayalet karti pasif isaretli', (await VICTIM.js(`[...document.querySelectorAll('#mtGrid .mt-card')].some(c=>c.classList.contains('dead'))`)) === true);
+  ok('kendim kartin tıklanamaz', (await REPORTER.js(`document.querySelector('#mtGrid .mt-card.mine')!==null`)) === true);
+  ok('raporlayan kafeteryada', !!(await REPORTER.js(`(()=>{const m=ME();return m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)));
+  ok('hayalet de kafeteryada ama olu', (await VICTIM.js(`(()=>{const m=ME();return m.dead===true&&m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)) === true);
+
+  // Oy ver
+  await REPORTER.js(`castVote(${JSON.stringify(impId)})`);
+  await REPORTER.until(`meeting.myVote!==null`, 8000, 'oy kaydedilmedi');
+  ok('oy kullanimi isaretlendi',
+    (await REPORTER.js(`[...document.querySelectorAll('#mtGrid .mt-card')].some(c=>c.classList.contains('voted'))`)) === true);
+  ok('oy kartinda tik var', await REPORTER.js(`(()=>{
+    const c=document.querySelector('#mtGrid .mt-card.picked');
+    if(!c)return 'picked-yok:'+[...document.querySelectorAll('#mtGrid .mt-card')].map(x=>x.className).join('|');
+    const k=c.querySelector('.tick');
+    if(!k)return 'tick-yok:'+c.className;
+    return getComputedStyle(k).display!=='none';
+  })()`), await REPORTER.js(`(()=>{const c=document.querySelector('#mtGrid .mt-card.picked');return c?c.className:'yok'})()`));
+  // Başkasının oyu gizli kalmalı
+  await sleep(300);
+  const votedSeen = await mImp.js(`document.querySelectorAll('#mtGrid .mt-card.voted').length`);
+  ok('baskasinin oyu gizli', votedSeen <= 2, 'isaretli=' + votedSeen);
+
+  // Mürettebatın HEPSİ sahtekâra oy versin (sahtekâr kendine oy veremez)
+  for (const t of mCrew) await t.js(`castVote(${JSON.stringify(impId)})`);
+  await mImp.js(`castVote('skip')`);
+  for (const t of M) await t.until(`ejecting===true`, 15000, t.tag + ' atma animasyonu baslamadi');
+  ok('herkes oy kullaninca uzaya atma basladi', true);
+  ok('toplanti ekrani kapandi',
+    (await REPORTER.js(`document.querySelector('#meetingScreen').classList.contains('on')`)) === false);
+  ok('atma ekrani acildi',
+    (await REPORTER.js(`document.querySelector('#ejectScreen').classList.contains('on')`)) === true);
+  ok('animasyon sınıfı işledi', true);
+  const tEject = Date.now();
+  // Animasyon bitip sonuç yazısı gelsin (EJECT_TOTAL = 6400 ms)
+  await REPORTER.until(`document.querySelector('#ejectScreen .ej-text').classList.contains('on')`, 12000, 'atma sonucu gorunmedi');
+  ok('atma sonucu yazi olarak cikti',
+    /DIŞARI ATILDI/.test(await REPORTER.js(`document.querySelector('#ejTitle').textContent`)),
+    await REPORTER.js(`document.querySelector('#ejTitle').textContent`));
+  ok('rol atma sonunda aciklandi',
+    /SAHTEKÂR|MÜRETTEBAT/.test(await REPORTER.js(`document.querySelector('#ejRole').textContent`)),
+    await REPORTER.js(`document.querySelector('#ejRole').textContent`));
+  ok('animasyon en az 6 saniye surdu', (Date.now() - tEject) > 5500, 'ms=' + (Date.now() - tEject));
+  // Sahtekâr atıldı -> mürettebat kazanır, sonuç ekranı gelir
+  for (const t of M) await t.until(`gameOver===true`, 15000, t.tag + ' oyun bitmedi');
+  ok('sagtekar atilinca oyun bitti', (await REPORTER.js(`gameOver`)) === true);
+  ok('sonuc ekrani gorundu',
+    /sonuç|SAHTEKÂR|MÜRETTEBAT|KAZANDI/i.test(await REPORTER.js(`document.querySelector('#resultScreen').textContent`)));
+  ok('atilan oyuncu sahnede cizilmiyor', (await REPORTER.js(`ejecting===false`)) === true);
+
+  const errM = M.flatMap(t => t.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e)));
+  ok('toplanti sekmelerinde JS hatasi yok', errM.length === 0, errM.join(' | '));
+
+  /* 8) konsol hataları (önceki iki sekme) */
   const errsA = A.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e));
   const errsB = B.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e));
   ok('A sekmesinde JS hatası yok', errsA.length === 0, errsA.join(' | '));
   ok('B sekmesinde JS hatası yok', errsB.length === 0, errsB.join(' | '));
 
-  /* 8) SOLO hâlâ çalışıyor mu (sunucusuz) */
+  /* 9) SOLO hâlâ çalışıyor mu (sunucusuz) */
   const S = await Tab.open(SITE, 'S');
   await S.until('typeof startSolo==="function" && !!document.querySelector("#soloBtn")', 25000, 'S sayfa yuklenmedi');
   await S.js(`(()=>{const i=document.querySelector('#nameIn');i.value='Yalnız';i.dispatchEvent(new Event('input'));})()`);
@@ -223,12 +356,29 @@ class Tab {
   ok('solo rolleri dağıtıldı', s1.total === s1.players, s1.total + '/' + s1.players);
   ok('solo sekmesinde JS hatası yok', S.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e)).length === 0, S.errors.join(' | '));
 
+  /* 10) SOLO raporlama: bot öldürülünce ceset raporlanabilmeli */
+  const bots = await S.js(`[...players.values()].filter(p=>p.bot).map(p=>p.id)`);
+  ok('solo bot cesdi bulundu', bots.length > 0, 'bot=' + bots.length);
+  await S.js(`(()=>{const b=[...players.values()].find(p=>p.bot);const m=ME();b.dead=true;b.reported=false;b.gone=false;b.x=b.tx=m.x+25;b.y=b.ty=m.y;})()`);
+  await S.until(`/ready/.test(document.querySelector('#reportBtn').className)`, 8000, 'solo rapor butonu parladi');
+  ok('solo modda rapor butonu parladi', true);
+  await S.js(`tryReport()`);
+  await S.until(`!!meeting`, 10000, 'solo toplanti acmadi');
+  ok('solo toplanti ekrani acildi',
+    (await S.js(`document.querySelector('#meetingScreen').classList.contains('on')`)) === true);
+  ok('solo toplantida tum oyuncular var', (await S.js(`meeting.players.length`)) === 4);
+  ok('solo toplanti sayaci 90', (await S.js(`Math.ceil((meeting.endsAt-Date.now())/1000)`)) > 80);
+  await S.js(`castVote('skip')`);
+  await S.until(`ejecting===true`, 25000, 'solo botlar oy vermedi / atma baslamadi');
+  ok('solo oylama sonucu animasyona baglandi', true);
+  ok('solo sekmesinde JS hatasi yok (toplanti)', S.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e)).length === 0, S.errors.join(' | '));
+
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));
   const skipped = log.filter(l => l.startsWith('ATLANDI'));
   console.log('\nSONUC: ' + (log.length - failed.length - skipped.length - 1) + '/' + (log.length - 1 - skipped.length) + ' gecti'
     + (skipped.length ? '  (' + skipped.length + ' atlandi)' : ''));
-  [A, B, S].forEach(t => t.close());
+  [A, B, S].concat(M).forEach(t => t.close());
   edge.kill();
   await sleep(500);
   process.exit(failed.length ? 1 : 0);

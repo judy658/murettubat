@@ -99,6 +99,7 @@ function updateBot(b,dt){b.wait-=dt;if(b.wait>0){b.moving=false;return}
 function canSee(me,p){
   if(!me)return true;
   if(p.id===myId)return true;
+  if(p.gone)return false;
   if(me.dead)return true;
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return false;  // NaN asla çizilmez
   return isInView(me,p);
@@ -118,6 +119,7 @@ function render(){
   const impNames=new Set([...roles.entries()].filter(([id,r])=>r==='impostor').map(([id])=>id));
   const meImp=roles.get(myId)==='impostor';
   for(const p of list){
+    if(p.gone)continue;          // uzaya atılan sahnede yok
     if(!canSee(me,p))continue;
     drawBean(gx,p.x,p.y,1,p.ci,p.dir,p.moving,T+(p.bob||0),p.dead);
     if(!p.dead){
@@ -130,10 +132,16 @@ function render(){
   gx.restore();
   if(me&&!me.dead)drawFog(gx,me,w,h);
   const killBtn=$('#killBtn');
-  if(me&&meImp&&!me.dead&&!gameOver){
+  if(me&&meImp&&!me.dead&&!gameOver&&!meeting&&!ejecting){
     killBtn.classList.add('show');
     killBtn.classList.toggle('ready',!!findKillTarget());
   }else{killBtn.classList.remove('show','ready');}
+  /* RAPOR butonu: cesede yaklaşınca belirir. Toplantı sırasında gizli. */
+  const repBtn=$('#reportBtn');
+  if(me&&!me.dead&&!gameOver&&!meeting&&!ejecting){
+    repBtn.classList.add('show');
+    repBtn.classList.toggle('ready',!!findReportTarget());
+  }else{repBtn.classList.remove('show','ready');}
 }
 
 function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);

@@ -98,7 +98,28 @@
     <div class="joybase" id="joyBase"></div>
     <div class="joyknob" id="joyKnob"></div>
     <button id="killBtn" title="Öldür">🔪<span class="cd"></span></button>
+    <button id="reportBtn" title="Cesedi raporla (R)">📢<span class="cd"></span></button>
   </section>
+</div>
+<div id="meetingScreen">
+  <div class="mt-wrap">
+    <div class="mt-head">
+      <div class="mt-title" id="mtTitle">TOPLANTI</div>
+      <div class="mt-timer" id="mtTimer">90</div>
+    </div>
+    <div class="mt-sub" id="mtSub"></div>
+    <div class="mt-grid" id="mtGrid"></div>
+    <div class="mt-foot">
+      <button class="btn big ghost" id="mtSkip">⏭️ BOŞ BIRAK</button>
+      <div class="mt-chat"><div class="msgs" id="mtMsgs"></div>
+        <form class="msgform" id="mtForm"><input type="text" id="mtIn" maxlength="120" placeholder="Mesaj yaz…" autocomplete="off"><button class="btn small cyan">➤</button></form>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="ejectScreen"><canvas id="ejCanvas"></canvas>
+  <div class="ej-flash" id="ejFlash"></div>
+  <div class="ej-text"><h2 id="ejTitle"></h2><div id="ejRole"></div></div>
 </div>
 <div id="reveal"><canvas id="rvBean" width="260" height="290"></canvas>
   <div id="rvWord"></div><div id="rvSub"></div><div id="rvTeam"></div></div>
@@ -125,6 +146,7 @@
 <script src="js/ui.js"></script>
 <script src="js/lobby.js"></script>
 <script src="js/game.js"></script>
+<script src="js/meeting.js"></script>
 <script src="js/input.js"></script>
 <script src="js/render.js"></script>
 <script src="js/main.js"></script>

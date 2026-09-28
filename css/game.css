@@ -61,3 +61,85 @@
 #resultScreen .p-card .role{font-size:11px;font-weight:900;letter-spacing:.1em;margin-top:3px}
 #resultScreen .p-card .role.crew{color:var(--green)}
 #resultScreen .p-card .role.imp{color:var(--red)}
+
+/* ================================================================== */
+/* RAPORLAMA — cesede yaklasinca buton belirir                        */
+/* ================================================================== */
+#reportBtn{position:absolute;bottom:24px;right:130px;width:78px;height:78px;border-radius:50%;
+  background:linear-gradient(135deg,#ffd23f,#c9931a);border:4px solid rgba(0,0,0,.5);
+  box-shadow:0 8px 0 #8a6710,0 16px 32px rgba(0,0,0,.6);cursor:pointer;z-index:7;
+  display:none;align-items:center;justify-content:center;font-size:38px;color:#fff;
+  text-shadow:0 2px 0 rgba(0,0,0,.4)}
+#reportBtn.show{display:flex}
+#reportBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #8a6710}
+#reportBtn.ready{box-shadow:0 8px 0 #8a6710,0 0 22px 5px rgba(255,210,63,.7),0 16px 32px rgba(0,0,0,.6);
+  animation:reportpulse .95s ease-in-out infinite}
+#reportBtn.ready::after{content:'R';position:absolute;bottom:-30px;left:50%;transform:translateX(-50%);
+  font-family:'Bangers';font-size:17px;color:#ffe9a3;text-shadow:0 2px 0 #000;white-space:nowrap}
+#reportBtn .cd{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);font-family:'Bangers';
+  font-size:18px;color:#fff;text-shadow:0 2px 0 #000;white-space:nowrap}
+@keyframes reportpulse{50%{box-shadow:0 8px 0 #8a6710,0 0 38px 12px rgba(255,210,63,.95),0 16px 32px rgba(0,0,0,.6)}}
+
+/* ================================================================== */
+/* TOPLANTI EKRANI                                                     */
+/* ================================================================== */
+#meetingScreen{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;
+  align-items:center;justify-content:center;padding:18px;
+  background:radial-gradient(circle at 50% 36%,rgba(18,42,92,.96),rgba(3,7,18,.985) 72%)}
+#meetingScreen.on{display:flex;animation:mtin .35s ease-out}
+@keyframes mtin{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.mt-wrap{width:min(1080px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px;align-items:center}
+.mt-head{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center}
+.mt-title{font-family:'Bangers';font-size:clamp(26px,4.4vw,52px);color:#fff;line-height:1;
+  text-shadow:5px 5px 0 rgba(0,0,0,.5)}
+.mt-title b{color:var(--red)}
+.mt-timer{font-family:'Bangers';font-size:clamp(30px,5vw,58px);color:var(--yellow);
+  min-width:2.1em;text-align:center;background:rgba(10,17,32,.85);border:3px solid var(--line);
+  border-radius:14px;padding:2px 14px;line-height:1}
+.mt-timer.urgent{color:var(--red);border-color:var(--red);animation:killpulse .7s ease-in-out infinite}
+.mt-sub{font-weight:800;color:rgba(255,255,255,.8);text-align:center;font-size:15px;max-width:70ch}
+.mt-sub b{color:var(--yellow)}
+.mt-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:100%}
+.mt-card{background:rgba(10,17,32,.9);border:3px solid var(--line);border-radius:14px;
+  padding:10px 14px;min-width:168px;display:flex;align-items:center;gap:10px;cursor:pointer;
+  transition:transform .12s,border-color .12s,background .12s;position:relative;user-select:none}
+.mt-card:hover{transform:translateY(-3px);border-color:var(--cyan)}
+.mt-card canvas{flex-shrink:0}
+.mt-card .info{font-weight:800;font-size:14px;text-align:left;min-width:0}
+.mt-card .st{font-size:11px;font-weight:900;letter-spacing:.08em;margin-top:3px;color:var(--mut)}
+.mt-card.dead{opacity:.45;cursor:default}
+.mt-card.dead:hover{transform:none;border-color:var(--line)}
+.mt-card.mine{border-color:var(--green);cursor:default}
+.mt-card.picked{border-color:var(--yellow);background:rgba(60,48,8,.85)}
+.mt-card .tick{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;
+  background:var(--green);color:#04180d;font-weight:900;font-size:15px;display:none;
+  align-items:center;justify-content:center;line-height:1}
+/* Tik KENDİ oyumuzu kullandığımız kartta görünür. Başkasının oyu gizli
+   olduğu için onun kartında tik yok, yalnızca soluklaşır. */
+.mt-card.picked .tick{display:flex}
+.mt-card.voted{opacity:.72}
+.mt-card.picked{opacity:1}
+.mt-foot{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;justify-content:center;width:100%}
+.mt-chat{width:min(420px,100%);display:flex;flex-direction:column;gap:6px}
+.mt-chat .msgs{max-height:96px}
+#mtSkip.ready{box-shadow:0 6px 0 var(--cyansh),0 0 20px 5px rgba(63,214,255,.55)}
+#mtSkip.picked{border-color:var(--yellow);background:rgba(60,48,8,.9)}
+
+/* ================================================================== */
+/* UZAYA ATMA ANİMASYONU                                               */
+/* ================================================================== */
+#ejectScreen{position:fixed;inset:0;z-index:70;display:none;background:#04060f;overflow:hidden}
+#ejectScreen.on{display:block}
+#ejCanvas{position:absolute;inset:0;width:100%;height:100%}
+.ej-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.ej-flash.go{animation:ejflash .5s ease-out}
+@keyframes ejflash{0%{opacity:0}18%{opacity:.92}100%{opacity:0}}
+.ej-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;text-align:center;opacity:0;transition:opacity .4s;padding:20px}
+.ej-text.on{opacity:1}
+.ej-text h2{font-family:'Bangers';font-size:clamp(34px,7vw,86px);color:#fff;line-height:1;
+  text-shadow:6px 6px 0 rgba(0,0,0,.6)}
+.ej-text #ejRole{font-family:'Bangers';font-size:clamp(26px,5.4vw,64px);line-height:1;
+  padding:6px 26px;border-radius:12px;border:4px solid currentColor}
+.ej-text #ejRole.imp{color:var(--red)}
+.ej-text #ejRole.crew{color:var(--green)}
