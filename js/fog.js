@@ -19,8 +19,10 @@ function drawFog(ctx,player,w,h){
   const angle=player.angle!=null?player.angle:(player.dir>0?0:Math.PI);
   /* EL FENERİ: yalnızca baktığımız yön aydınlanır. Işınlar duvarda durur;
      her ışın yürünebilir zeminden çıkana kadar yürütülür, böylece ışık
-     köşeyi dönüp arkadaki odaları AYDINLATMAZ. */
-  const RAYS=56,RAY_STEP=10;
+     köşeyi dönüp arkadaki odaları AYDINLATMAZ. Uç nokta ikinci geçişte
+     duvara en yakın serbest noktaya ince adımlarla oturtulur; aksi halde
+     kaba örnekleme duvarda DİŞLİ/TARTIKLI üçgen gölgeler yapar. */
+  const RAYS=96,RAY_STEP=5;
   const path=new Path2D();
   path.moveTo(sx,sy);
   for(let i=0;i<=RAYS;i++){
@@ -28,14 +30,21 @@ function drawFog(ctx,player,w,h){
     const vx=Math.cos(a),vy=Math.sin(a);
     let dW=coneLenW;
     for(let rr=RAY_STEP;rr<=coneLenW;rr+=RAY_STEP){
-      if(!losClear(player.x+vx*rr,player.y+vy*rr)){dW=rr-RAY_STEP;break}
+      if(!losClear(player.x+vx*rr,player.y+vy*rr)){
+        dW=rr-RAY_STEP;
+        /* [dW, dW+RAY_STEP] aralığında duvarın önünü hassas bul. */
+        for(let f=RAY_STEP/2;f>=1;f/=2){
+          if(losClear(player.x+vx*(dW+f),player.y+vy*(dW+f)))dW+=f;
+        }
+        break;
+      }
     }
     path.lineTo(sx+vx*dW*view.sc,sy+vy*dW*view.sc);
   }
   path.closePath();
   const cg=fogX.createRadialGradient(sx,sy,0,sx,sy,coneLenW*view.sc);
-  cg.addColorStop(0,'rgba(0,0,0,1)');cg.addColorStop(.5,'rgba(0,0,0,.92)');
-  cg.addColorStop(.78,'rgba(0,0,0,.45)');cg.addColorStop(1,'rgba(0,0,0,0)');
+  cg.addColorStop(0,'rgba(0,0,0,1)');cg.addColorStop(.55,'rgba(0,0,0,.97)');
+  cg.addColorStop(.85,'rgba(0,0,0,.55)');cg.addColorStop(1,'rgba(0,0,0,0)');
   fogX.fillStyle=cg;
   fogX.fill(path);
   /* Işığı zemine kes: duvar/boşluk arkası karanlık kalır,
