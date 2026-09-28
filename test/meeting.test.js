@@ -299,6 +299,65 @@ async function makeBody(room, victim) {
   r3.all.forEach(kill);
 
   /* ================================================================
+     5) ACİL DURUM TOPLANTISI (kantin masasındaki buton)
+        Ceset GEREKMEZ; masanın butonuna yakın olmak yeterlidir.
+        Her oyuncunun oyun başına 1 hakkı vardır.
+     ================================================================ */
+  const rA = await makeRoom(5, 'A');
+  const callerA = rA.crew[0];
+
+  /* Butondan uzakken çağırma reddedilmeli */
+  send(callerA, { t: 'p', x: 1100, y: 620 });
+  await sleep(300);
+  send(callerA, { t: 'emerg' });
+  await sleep(250);
+  ok('acil durum: butona uzakken reddedildi', count(rA.imp, 'meet') === 0);
+
+  /* Butona yakınınca kabul edilmeli (ceset yok) */
+  send(callerA, { t: 'p', x: 190, y: 150 });
+  await sleep(300);
+  send(callerA, { t: 'emerg' });
+  await sleep(350);
+  const mA = last(rA.imp, 'meet');
+  ok('acil durum: masaya yakınınca toplantı açıldı', !!mA);
+  ok('acil durum: çağıran doğru', !!(mA && mA.reporter === callerA.you));
+  ok('acil durum: kurban (ceset) YOK', !!(mA && mA.victim === null));
+  ok('acil durum: toplantı süresi 90 saniye', !!(mA && mA.seconds === 90));
+  ok('acil durum: herkes kafeterya ışınlandı',
+    !!mA && rA.all.every(b => inKantin(mA.p[b.you])));
+
+  /* Herkes crew[1]'i oylasın → crew[1] atılır. (crew[1] KENDİSİNE oy
+     veremez; o yüzden crew[1] 'skip' oylar, diğer 4'ü crew[1]'i seçer.) */
+  for (const b of rA.all) {
+    send(b, { t: 'vote', target: b === rA.crew[1] ? 'skip' : rA.crew[1].you });
+  }
+  await sleep(500);
+  const ejA = last(rA.imp, 'eject');
+  ok('acil durum sonrası oy birleşti, crew atıldı', !!(ejA && ejA.id === rA.crew[1].you));
+
+  await sleep(EJECT_WAIT);
+  const resA = last(rA.imp, 'resume');
+  ok('acil durum sonrası oyuna dönüldü', !!resA);
+  ok('acil durumda atılan "yok" işaretli', !!(resA && resA.p[rA.crew[1].you].v === 1));
+
+  /* Aynı oyuncu ikinci kez çağıramaz (oyuncu başına 1 hak) */
+  rA.imp.msgs.length = 0;
+  send(callerA, { t: 'p', x: 190, y: 150 });
+  await sleep(300);
+  send(callerA, { t: 'emerg' });
+  await sleep(300);
+  ok('acil durum: aynı oyuncu 2. kez çağıramadı', count(rA.imp, 'meet') === 0);
+
+  /* Başka bir canlı oyuncu hâlâ çağırabilir (hak kişisel) */
+  const callerA2 = rA.crew[2];
+  send(callerA2, { t: 'p', x: 190, y: 150 });
+  await sleep(300);
+  send(callerA2, { t: 'emerg' });
+  await sleep(350);
+  ok('acil durum: başka oyuncu hâlâ çağırabilir', count(rA.imp, 'meet') === 1);
+  rA.all.forEach(kill);
+
+  /* ================================================================
      5) SÜRE DOLDUĞUNDA OY VERİLMEZSE SONUÇ (90 sn beklemeden test edilemez;
         o yüzden 15 sn kısaltılmış EJECT_MS yerine süre kuralı birim testiyle
         doğrulanır) — burada yalnızca süre dolunca otomatik çözümün

@@ -3,6 +3,29 @@
    Kararların hepsi SUNUCUDA verilir; burada yalnızca arayüz vardır. */
 
 const REPORT_RANGE=70;   // server/index.js ile aynı değer
+const EMERG_RANGE=60;    // acil durum butonu menzili — server ile aynı
+const EMERG_BTN={x:190,y:150}; // kantin masası ortası
+let emergUsed=false;     // oyun başına 1 acil durum hakkı (her oyunda reset)
+
+/* Acil durum butonu hazır mı? Masaya yakın, hayatta ve hakkı duruyor. */
+function emergReady(){
+  const me=ME();
+  if(!me||me.dead||gameOver||meeting||ejecting)return false;
+  if(emergUsed)return false;
+  return Math.hypot(me.x-EMERG_BTN.x,me.y-EMERG_BTN.y)<=EMERG_RANGE;
+}
+
+function tryEmergency(){
+  if(!emergReady()){
+    let msg='Acil durum butonuna çok uzaksın';
+    if((ME()||{}).dead)msg='Ölüsün — acil durum çağıramazsın';
+    else if(emergUsed)msg='Acil durum hakkını zaten kullandın';
+    toast(msg,'err');sfx.err();return
+  }
+  sfx.report();
+  if(S.mode==='online')sendMsg({t:'emerg'});
+  else soloEmergency();
+}
 
 /* Raporlanabilir en yakın CESEDİ bulur. Zaten raporlanmış ceset tekrar
    seçilmez, hayaletler rapor edemez, toplantı sırasında raporlanmaz. */
@@ -35,6 +58,7 @@ function openMeeting(d){
     reporter:d.reporter,victim:d.victim,
     endsAt:d.endsAt,players:d.players||[],myVote:d.myVote||null,
   };
+  if(!d.victim&&d.reporter===myId)emergUsed=true;   // kendi acil durum çağrım
   controls=false;
   closeDeathScreen();
   $('#meetingScreen').classList.add('on');
@@ -86,7 +110,9 @@ function renderMeeting(){
   if(!meeting)return;
   const rp=(players.get(meeting.reporter)||{}).name||'?';
   const vm=(players.get(meeting.victim)||{}).name||'?';
-  $('#mtTitle').innerHTML=esc(rp)+' <b>'+esc(vm)+'</b> CESEDİNİ RAPORLADI';
+  $('#mtTitle').innerHTML=meeting.victim
+    ? esc(rp)+' <b>'+esc(vm)+'</b> CESEDİNİ RAPORLADI'
+    : esc(rp)+' <b>ACİL DURUM TOPLANTISI</b> ÇAĞIRDI';
   const done=meeting.players.filter(q=>q.voted&&!q.dead).length;
   const aliveN=meeting.players.filter(q=>!q.dead).length;
   const iGhost=!!(players.get(myId)||{}).dead;
@@ -298,6 +324,26 @@ function soloReport(victim){
     p:null,myVote:null,
   });
   /* Yalnızca HAYATTAKİ botlar oy kullanır; cesedi raporlanan hayalet oy kullanmaz. */
+  [...players.values()].filter(p=>p.bot&&!p.dead).forEach((b,i)=>{
+    soloTimers.push(setTimeout(()=>{
+      if(!meeting)return;
+      const others=[...players.values()].filter(p=>!p.dead&&p.id!==b.id).map(p=>p.id);
+      if(!others.length)return;
+      soloCastVote(b.id,Math.random()<.3?'skip':pick(others));
+    },2600+i*2100+rand(0,1700)));
+  });
+}
+
+function soloEmergency(){
+  soloClearTimers();soloVotes={};
+  resetPositions();
+  cam.x=SPAWN.x;cam.y=SPAWN.y;
+  openMeeting({
+    reporter:myId,victim:null,endsAt:Date.now()+MEET_SECONDS*1000,
+    players:[...players.values()].map(p=>({id:p.id,n:p.name,ci:p.ci,dead:p.dead,voted:false})),
+    p:null,myVote:null,
+  });
+  /* Yalnızca HAYATTAKİ botlar oy kullanır. */
   [...players.values()].filter(p=>p.bot&&!p.dead).forEach((b,i)=>{
     soloTimers.push(setTimeout(()=>{
       if(!meeting)return;

@@ -115,6 +115,15 @@ function render(){
   gx.save();gx.translate(w/2,h/2);gx.scale(view.sc,view.sc);gx.translate(-cam.x,-cam.y);
   if(mapC.width)gx.drawImage(mapC,-PAD,-PAD);
   const me=ME();
+  /* Acil durum butonu hazırsa (kantin masası ortası) parıldama halkası. */
+  if(S.phase==='game'&&me&&!me.dead&&!gameOver&&!meeting&&!ejecting&&emergReady()){
+    const pr=15+4*Math.sin(T*6);
+    gx.strokeStyle=`rgba(255,59,48,${.4+.25*Math.sin(T*6)})`;
+    gx.lineWidth=3;
+    gx.beginPath();gx.arc(EMERG_BTN.x,EMERG_BTN.y,pr,0,7);gx.stroke();
+    gx.fillStyle='rgba(255,59,48,.07)';
+    gx.beginPath();gx.arc(EMERG_BTN.x,EMERG_BTN.y,pr+4,0,7);gx.fill();
+  }
   const list=[...players.values()].sort((a,b)=>a.y-b.y);
   const impNames=new Set([...roles.entries()].filter(([id,r])=>r==='impostor').map(([id])=>id));
   const meImp=roles.get(myId)==='impostor';
@@ -142,6 +151,12 @@ function render(){
     repBtn.classList.add('show');
     repBtn.classList.toggle('ready',!!findReportTarget());
   }else{repBtn.classList.remove('show','ready');}
+  /* ACİL DURUM butonu: kantin masasına yaklaşınca belirir. */
+  const emBtn=$('#emergBtn');
+  if(me&&!me.dead&&!gameOver&&!meeting&&!ejecting){
+    emBtn.classList.add('show');
+    emBtn.classList.toggle('ready',!!emergReady());
+  }else{emBtn.classList.remove('show','ready');}
 }
 
 function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);

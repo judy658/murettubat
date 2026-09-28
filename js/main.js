@@ -37,15 +37,17 @@ function init(){
   $('#sndBtn').onclick=snd;$('#sndBtn2').onclick=snd;setSnd();
   $('#killBtn').onclick=()=>{sfx.click();tryKill();};
   $('#reportBtn').onclick=()=>{tryReport();};
+  $('#emergBtn').onclick=()=>{tryEmergency();};
   // Toplantı ekranı
   $('#mtSkip').onclick=()=>castVote('skip');
   $('#mtForm').onsubmit=e=>{e.preventDefault();sendChat($('#mtIn'))};
   $('#mtIn').addEventListener('focus',()=>{for(const k in keys)keys[k]=0});
-  // PC kısayolları: Q = kill, R = rapor (basılı tutunca tekrarlanmasın)
+  // PC kısayolları: Q = kill, R = rapor, E = acil durum (basılı tutunca tekrarlanmasın)
   addEventListener('keydown',e=>{if(e.repeat)return;if(e.target&&e.target.tagName==='INPUT')return;
     const k=e.key.toLowerCase();
     if(k==='q'){e.preventDefault();tryKill();}
-    else if(k==='r'){e.preventDefault();tryReport();}});
+    else if(k==='r'){e.preventDefault();tryReport();}
+    else if(k==='e'){e.preventDefault();tryEmergency();}});
   $('#deathContinue').onclick=()=>{sfx.click();$('#deathScreen').classList.remove('on');};
   $('#rsBack').onclick=()=>{sfx.click();if(canOnline())sendMsg({t:'back'});toLobbyAll();};
   requestAnimationFrame(loop);

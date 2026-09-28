@@ -444,6 +444,30 @@ class Tab {
   ok('solo oylama sonucu animasyona baglandi', true);
   ok('solo sekmesinde JS hatasi yok (toplanti)', S.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e)).length === 0, S.errors.join(' | '));
 
+  /* 11) ACİL DURUM butonu: taze solo oyununda buton hazır olmalı, tıklanınca
+        toplantı başlığı "ACİL DURUM" olmalı (ceset yok), tekrar tıklama reddedilmeli. */
+  await S.js(`startSolo()`);
+  await S.until('S.mode==="solo" && S.phase==="game" && !gameOver && !meeting', 15000, '2. solo baslamadi');
+  // Oyuncuyu masa üstüne (190,150) taşı
+  await S.js(`(()=>{const m=ME();m.x=m.tx=190;m.y=m.ty=150;})()`);
+  await S.until(`/ready/.test(document.querySelector('#emergBtn').className)`, 8000, 'solo acil durum butonu hazir degil');
+  ok('solo acil durum butonu hazir (masa basinda)', true);
+  ok('acil durum butonu gosteriliyor', (await S.js(`/show/.test(document.querySelector('#emergBtn').className)`)) === true);
+  const soloEmergBtn = await S.js(`document.querySelector('#emergBtn').offsetWidth>0`);
+  ok('acil durum butonu sifir degil', soloEmergBtn === true);
+  await S.js(`tryEmergency()`);
+  await S.until('!!meeting', 10000, 'solo acil durum toplanti acmadi');
+  ok('solo acil durum toplanti acildi',
+    (await S.js(`document.querySelector('#meetingScreen').classList.contains('on')`)) === true);
+  ok('acil durum toplantisinda kurban (ceset) yok', (await S.js(`meeting.victim`)) === null);
+  ok('acil durum toplanti basligi dogru',
+    /ACİL DURUM/.test(await S.js(`document.querySelector('#mtTitle').textContent`)),
+    await S.js(`document.querySelector('#mtTitle').textContent`));
+  ok('acil durum sayaci 90', (await S.js(`Math.ceil((meeting.endsAt-Date.now())/1000)`)) > 80);
+  // Hak bir kez: oyuncu ölü değilse tekrar çağıramaz, buton hazır olmaz
+  const emergUsedAfter = await S.js(`emergUsed`);
+  ok('acil durum hakki isaretlendi (1 kez)', emergUsedAfter === true);
+
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));
   const skipped = log.filter(l => l.startsWith('ATLANDI'));

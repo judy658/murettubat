@@ -65,6 +65,23 @@
 /* ================================================================== */
 /* RAPORLAMA — cesede yaklasinca buton belirir                        */
 /* ================================================================== */
+#emergBtn{position:absolute;bottom:24px;right:222px;width:78px;height:78px;border-radius:50%;
+  background:linear-gradient(135deg,#ff5a4d,#c92825);border:4px solid rgba(0,0,0,.5);
+  box-shadow:0 8px 0 #8a1f1a,0 16px 32px rgba(0,0,0,.6);cursor:pointer;z-index:7;
+  display:none;align-items:center;justify-content:center;font-size:36px;color:#fff;
+  text-shadow:0 2px 0 rgba(0,0,0,.4)}
+#emergBtn.show{display:flex}
+#emergBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #8a1f1a}
+#emergBtn.ready{box-shadow:0 8px 0 #8a1f1a,0 0 22px 5px rgba(255,77,72,.7),0 16px 32px rgba(0,0,0,.6);
+  animation:killpulse .95s ease-in-out infinite}
+#emergBtn.ready::after{content:'E';position:absolute;bottom:-30px;left:50%;transform:translateX(-50%);
+  font-family:'Bangers';font-size:17px;color:#ffb3ae;text-shadow:0 2px 0 #000;white-space:nowrap}
+#emergBtn .cd{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);font-family:'Bangers';
+  font-size:18px;color:#fff;text-shadow:0 2px 0 #000;white-space:nowrap}
+
+/* ================================================================== */
+/* RAPORLAMA — cesede yaklasinca buton belirir                        */
+/* ================================================================== */
 #reportBtn{position:absolute;bottom:24px;right:130px;width:78px;height:78px;border-radius:50%;
   background:linear-gradient(135deg,#ffd23f,#c9931a);border:4px solid rgba(0,0,0,.5);
   box-shadow:0 8px 0 #8a6710,0 16px 32px rgba(0,0,0,.6);cursor:pointer;z-index:7;

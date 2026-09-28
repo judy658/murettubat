@@ -28,6 +28,8 @@ const KEYFRAME_TICKS = 40;   // her N tick'te tam durum (≈2 sn) — kendini on
 const KILL_RANGE = 60;       // kill menzili (dünya birimi)
 const KILL_COOLDOWN = 25;    // saniye
 const REPORT_RANGE = 70;     // cesedi raporlamak için gereken yakınlık
+const EMERG_RANGE = 60;      // acil durum butonuna ulaşmak için gereken yakınlık
+const EMERG_BTN = { x: 190, y: 150 }; // kantin masası ortası (SPAWN ile aynı)
 const MEET_SECONDS = 90;     // toplantıda tartışma süresi
 const EJECT_MS = 11000;      // animasyon (6.4 sn) + rol açıklamasının okunması için pay
 const MAX_PLAYERS = 8;
@@ -123,6 +125,7 @@ function newRoom() {
     killAt: new Map(),    // id -> cooldown bitiş zamanı
     meeting: null,        // {reporter,victim,endsAt,votes,winner,finishing}
     reported: new Set(),  // raporlanmış cesetler (iki kez raporlanamaz)
+    emergUsed: new Set(), // acil durum hakkı kullanılmış oyuncular (oyuncu başına 1)
     // Konu (oyuncu) -> alıcı (istemci) -> son gönderilen alanlar.
     // HER İSTEMCİ AYRI TUTULUR: eskiden tek bir "gönderildi" işareti
     // paylaşılıyordu; bir istemcinin gönderimi kaçırırsa sunucu onu
@@ -330,6 +333,7 @@ function startGame(room, askerWs) {
   room.killAt.clear();
   room.sent.clear();
   room.reported.clear();
+  room.emergUsed.clear();
   // Yeni oyun: herkes dirilir, uzaya atılanlar geri gelir.
   room.players.forEach(p => { p.dead = false; p.gone = false; p.killed = false; });
   resetPositions(room);
@@ -376,6 +380,7 @@ function toLobby(room) {
   room.sent.clear();
   room.meeting = null;
   room.reported.clear();
+  room.emergUsed.clear();
   room.players.forEach(p => {
     p.ready = (p.id === room.hostId);
     p.dead = false; p.gone = false; p.killed = false;
@@ -449,6 +454,36 @@ function doReport(room, reporterId, victimId) {
   room.meeting = {
     reporter: reporterId,
     victim: victimId,
+    endsAt: Date.now() + MEET_SECONDS * 1000,
+    votes: new Map(),
+    winner: null,
+    finishing: false,
+  };
+
+  room.players.forEach(p => {
+    send(p.ws, Object.assign(meetingPayload(room), { you: p.id, myVote: null }));
+  });
+}
+
+/* ACİL DURUM TOPLANTISI: KANTİN masasındaki buton. Ceset GEREKMEZ;
+   her canlı oyuncunun oyun başına 1 hakkı vardır. Sunucu doğrulaması:
+   oyun sürüyor, çağıran hayatta, butona yakın, en az 2 canlı var. */
+function doEmergency(room, callerId) {
+  if (room.phase !== 'game' || room.gameOver || room.meeting) return;
+  const r = room.players.get(callerId);
+  if (!r || r.dead || r.gone) return;                    // hayalet çağıramaz
+  if (room.emergUsed.has(callerId)) return;              // hakkı bir kez
+  if (Math.hypot(r.x - EMERG_BTN.x, r.y - EMERG_BTN.y) > EMERG_RANGE) return;
+  const alive = [...room.players.values()].filter(p => !p.dead && !p.gone);
+  if (alive.length < 2) return;                          // tek başına anlamsız
+
+  room.emergUsed.add(callerId);
+  room.phase = 'meeting';
+  room.sent.clear();
+  resetPositions(room);                          // herkes kantine ışınlanır
+  room.meeting = {
+    reporter: callerId,
+    victim: null,                                // ceset YOK — acil durum
     endsAt: Date.now() + MEET_SECONDS * 1000,
     votes: new Map(),
     winner: null,
@@ -667,6 +702,10 @@ wss.on('connection', ws => {
 
       case 'report':
         doReport(room, p.id, String(msg.body || ''));
+        break;
+
+      case 'emerg':
+        doEmergency(room, p.id);
         break;
 
       case 'vote':

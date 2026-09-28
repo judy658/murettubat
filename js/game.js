@@ -19,6 +19,8 @@ function assignRoles(){
 function startSolo(){
   S.mode='solo';myId='me';started=true;S.phase='game';players.clear();roles.clear();gameOver=false;killCooldown=0;
   closeMeeting();closeEject();
+  soloClearTimers();           // önceki solo oyununun bekleyen oy zamanlayıcıları temizlensin
+  emergUsed=false;             // yeni oyunda acil durum hakkı geri gelir
   players.set('me',{id:'me',name:sanitize(prefs.name),ci:prefs.ci,x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:true,bot:false,dead:false,reported:false,gone:false});
   const used=new Set([prefs.ci]);
   ['Nova','Mercan','Arda-7'].forEach(n=>{let ci;do{ci=Math.floor(Math.random()*COLORS.length)}while(used.has(ci));used.add(ci);
@@ -29,6 +31,7 @@ function startSolo(){
 }
 function enterGame(){
   show('scr-game');$('#gMsgs').innerHTML='';controls=false;lastRoom=null;
+  emergUsed=false;              // yeni oyunda acil durum hakkı geri gelir
   if(!mapReady)buildMap();
   requestAnimationFrame(()=>{resize();if(!mapReady)buildMap();});
   $('#hudCode').textContent=(S.mode==='solo')?'SOLO':(roomCode||'—');

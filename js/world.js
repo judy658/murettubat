@@ -68,6 +68,13 @@ function drawProps(g){
   g.fillStyle='#222c49';g.beginPath();g.arc(190,150,28,0,7);g.fill();g.stroke();
   g.fillStyle='#2c3a5f';
   [[155,118],[225,118],[155,182],[225,182]].forEach(p=>{g.beginPath();g.arc(p[0],p[1],8,0,7);g.fill();g.stroke()});
+  /* ACİL DURUM butonu — masa ortasındaki kırmızı buton (js/meeting.js EMERG_BTN). */
+  g.beginPath();g.arc(190,150,12,0,7);g.fillStyle='#6d1220';g.fill();g.stroke();
+  g.beginPath();g.arc(190,150,9.5,0,7);g.fillStyle='#ff3b30';g.fill();g.stroke();
+  g.beginPath();g.arc(187,146.5,3,0,7);g.fillStyle='rgba(255,255,255,.45)';g.fill();
+  g.fillStyle='#fff';g.font='bold 12px Nunito';g.textAlign='center';g.textBaseline='middle';
+  g.fillText('!',190,151);
+  g.textBaseline='alphabetic';
   for(let i=0;i<3;i++){const x=720+i*75;g.fillStyle='#1d2740';g.fillRect(x,70,38,50);g.strokeRect(x,70,38,50);
     g.fillStyle='#ffd23f';g.beginPath();g.moveTo(x+22,76);g.lineTo(x+13,96);g.lineTo(x+19,96);
     g.lineTo(x+15,114);g.lineTo(x+27,92);g.lineTo(x+20,92);g.closePath();g.fill();}
