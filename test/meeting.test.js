@@ -85,19 +85,28 @@ async function makeBody(room, victim) {
   info('tur 1 roller: ' + r1.all.map(b => b.role).join(','));
   const victim1 = r1.crew[0];
   const rep1 = r1.crew[1];
-  const body1 = await makeBody(r1, victim1);
+  /* Cesedi kafeteryadan UZAKTA oluştur ki ışınlama davranışı ölçülebilsin:
+     toplantıda ceset ne kafeteryaya taşınmalı ne de görünmeli. makeBody
+     yerine konumları doğrudan veriyoruz (goP pozisyonları 2 sn'de bir
+     keyframe ile tazelenir, anlık okunursa sahtekâr yanlış yere gider). */
+  send(victim1, { t: 'p', x: 1100, y: 620 });
+  send(r1.imp, { t: 'p', x: 1100, y: 620 });
+  await sleep(300);
+  send(r1.imp, { t: 'kill', target: victim1.you });
+  await sleep(350);
+  const body1 = { x: 1100, y: 620 };
 
   ok('ceset oluştu', count(r1.imp, 'killed') === 1);
 
-  /* Menzil dışı rapor reddedilmeli */
-  send(rep1, { t: 'p', x: 1100, y: 620 });
+  /* Menzil dışı rapor reddedilmeli (raporlayan kantinde, ceset uzakta) */
+  send(rep1, { t: 'p', x: 190, y: 150 });
   await sleep(300);
   send(rep1, { t: 'report', body: victim1.you });
   await sleep(250);
   ok('menzil dışı rapor reddedildi', count(r1.imp, 'meet') === 0);
 
   /* Yaklaşınca kabul edilmeli */
-  send(rep1, { t: 'p', x: body1.x + 12, y: body1.y + 12 });
+  send(rep1, { t: 'p', x: body1.x, y: body1.y });
   await sleep(300);
   send(rep1, { t: 'report', body: victim1.you });
   await sleep(350);
@@ -112,12 +121,18 @@ async function makeBody(room, victim) {
     !!(meet1 && Math.abs(meet1.endsAt - (Date.now() + 90000)) < 4000));
   ok('oycu listesi toplantıda geldi', !!(meet1 && meet1.players.length === 5));
 
-  /* Teleport: herkes kantinde */
+  /* Teleport: HAYATTAKİLER kantinde. Ölüler/cesetler ışınlanmaz —
+     raporlanan ceset sahneden kaldırılır, kafeteryada belirmez. */
   const st1 = meet1.p;
-  ok('herkes kafeterya ışınlandı',
-    r1.all.every(b => inKantin(st1[b.you])));
+  const live1 = r1.all.map(b => st1[b.you]).filter(p => p.k === 0);
+  ok('hayattakiler kafeterya ışınlandı',
+    live1.length === 4 && live1.every(p => inKantin(p)));
   ok('ışınlanma spawn noktasına yakın',
-    Object.values(st1).every(p => Math.hypot(p.x - SPAWN.x, p.y - SPAWN.y) < 90));
+    live1.every(p => Math.hypot(p.x - SPAWN.x, p.y - SPAWN.y) < 90));
+  ok('raporlanan ceset sahneden kaldırıldı (yok)', st1[victim1.you].v === 1);
+  ok('raporlanan ceset yerinde kaldı (ışınlanmadı)',
+    Math.abs(st1[victim1.you].x - body1.x) < 40 && Math.abs(st1[victim1.you].y - body1.y) < 40,
+    'ceset=' + st1[victim1.you].x + ',' + st1[victim1.you].y + ' olum=' + body1.x + ',' + body1.y);
 
   /* Hayalet diriltilmemeli */
   ok('öldürülen oyuncu hâlâ ölü', st1[victim1.you].k === 1);
@@ -291,10 +306,12 @@ async function makeBody(room, victim) {
   await sleep(EJECT_WAIT);
   const res3 = last(r3.imp, 'resume');
   ok('skip sonrası oyuna dönüldü', !!res3);
-  ok('skip sonrası kimse yok işaretlenmedi',
-    !!(res3 && r3.all.every(b => res3.p[b.you].v === 0)));
-  ok('skip sonrası raporlanan ceset durdu', !!(res3 &&
-    res3.p[victim3.you].r === 1 && res3.p[victim3.you].v === 0));
+  /* Raporda ceset zaten sahneden kaldırıldığı için berelikten sonra da
+     durmaz: "yok" (v) işaretli tek kişi RAPORLANAN KURBAN olmalı. */
+  ok('skip sonrası sadece raporlanan ceset "yok" işaretli',
+    !!(res3 && r3.all.every(b => res3.p[b.you].v === (b.you === victim3.you ? 1 : 0))));
+  ok('skip sonrası raporlanan ceset kayboldu (r=1, v=1)',
+    !!(res3 && res3.p[victim3.you].r === 1 && res3.p[victim3.you].v === 1));
   ok('skip sonrası oyun devam ediyor', !r3.imp.end);
   r3.all.forEach(kill);
 
@@ -325,6 +342,8 @@ async function makeBody(room, victim) {
   ok('acil durum: toplantı süresi 90 saniye', !!(mA && mA.seconds === 90));
   ok('acil durum: herkes kafeterya ışınlandı',
     !!mA && rA.all.every(b => inKantin(mA.p[b.you])));
+  ok('acil durum: kurban olmadığı için kimse "yok" değil',
+    !!mA && rA.all.every(b => mA.p[b.you].v === 0));
 
   /* Herkes crew[1]'i oylasın → crew[1] atılır. (crew[1] KENDİSİNE oy
      veremez; o yüzden crew[1] 'skip' oylar, diğer 4'ü crew[1]'i seçer.) */

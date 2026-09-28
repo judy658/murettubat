@@ -306,10 +306,13 @@ function assignRoles(room) {
 }
 
 /* Herkesi kafeterya spotuna taşır. DİKKAT: ölüm durumuna dokunmaz —
-   toplantı sırasında da çağrılır, orada hayaletler hayalet olarak kalır. */
+   toplantı sırasında da çağrılır, orada hayaletler hayalet olarak kalır.
+   ÖLÜ/RAPORLANMIŞ oyuncular ışınlanmaz: ceset öldüğü yerde kalır, aksi
+   hâlde raporlanan ceset kafeteryada belirip oyunun sonuna kadar orada durur. */
 function resetPositions(room) {
   let i = 0;
   room.players.forEach(p => {
+    if (p.dead || p.gone) return;   // hayaletler ve cesetler yerinde kalır
     const o = SPAWN_OFFSETS[i++ % SPAWN_OFFSETS.length];
     p.x = SPAWN.x + o[0];
     p.y = SPAWN.y + o[1];
@@ -448,6 +451,7 @@ function doReport(room, reporterId, victimId) {
   if (Math.hypot(r.x - v.x, r.y - v.y) > REPORT_RANGE) return;
 
   room.reported.add(victimId);
+  v.gone = true;   // raporlanan ceset sahneden KALDIRILIR (oyun sonuna kadar durmaz)
   room.phase = 'meeting';
   room.sent.clear();
   resetPositions(room);                          // herkes kantine ışınlanır

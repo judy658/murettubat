@@ -338,7 +338,10 @@ class Tab {
   ok('hayalet oy sayacini gormuyor', !/\d+\/\d+/.test(await VICTIM.js(`document.querySelector('#mtSub').textContent`)));
   ok('kendim kartin tıklanamaz', (await REPORTER.js(`document.querySelector('#mtGrid .mt-card.mine')!==null`)) === true);
   ok('raporlayan kafeteryada', !!(await REPORTER.js(`(()=>{const m=ME();return m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)));
-  ok('hayalet de kafeteryada ama olu', (await VICTIM.js(`(()=>{const m=ME();return m.dead===true&&m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)) === true);
+  /* Raporlanan ceset toplantıyla birlikte SAHNEDEN KALDIRILIR (Among Us
+     gibi): "gone" işaretlenir → çizilmez. (Işınlanmama/"yerinde kalma"
+     davranışı protokol testinde doğrulanıyor.) */
+  ok('raporlanan ceset kayboldu (gone, cizilmez)', (await VICTIM.js(`ME().gone===true`)) === true);
 
   // Oy ver
   await REPORTER.js(`castVote(${JSON.stringify(impId)})`);
@@ -467,6 +470,25 @@ class Tab {
   // Hak bir kez: oyuncu ölü değilse tekrar çağıramaz, buton hazır olmaz
   const emergUsedAfter = await S.js(`emergUsed`);
   ok('acil durum hakki isaretlendi (1 kez)', emergUsedAfter === true);
+
+  /* 12) SKIP (berelik) ANİMASYONU: kırmızı astronot yerine RAPOR
+     butonundaki gibi MEGAFON (📢) uçmalı, isim etiketi olmamalı.
+     rAF'a bağımlı olmamak için drawEjectObj doğrudan, dolgu-metni
+     (fillText) casusuyla sınanır: skip=true → MEGAFON, skip=false → ASTRANOT
+     (drawBean yol çizgisi kullanır, emoji metni basmaz). */
+  const meg = await S.js(`(()=>{
+    const cv=document.createElement('canvas');cv.width=220;cv.height=220;
+    const g=cv.getContext('2d');
+    const seen=[];const of=g.fillText.bind(g);g.fillText=function(t){seen.push(String(t));return of.apply(g,arguments)};
+    drawEjectObj(g,1,0,true,0);        // skip -> megafon
+    const afterSkip=seen.slice();
+    seen.length=0;
+    drawEjectObj(g,1,0,false,0);       // gercek atis -> astronot
+    return {skip:afterSkip.join(''),real:seen.join('')};
+  })()`);
+  ok('skip ciziminde MEGAFON (📢) basildi',
+    meg.skip.length > 0 && /\uD83D\uDCE2/.test(meg.skip), 'skip="' + meg.skip + '" kod=' + meg.skip.codePointAt(0));
+  ok('gercek atis ciziminde emoji YOK (astronot cizildi)', meg.real === '', 'real="' + meg.real + '"');
 
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));

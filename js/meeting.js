@@ -154,6 +154,22 @@ function renderMeeting(){
 let ejectRaf=0;
 const DRIFT_MS=3200, FLY_MS=1600, EJECT_TOTAL=6400;
 
+/* Uzaya fırlatılan nesne: normalde astronot (drawBean), skip'te ise
+   RAPOR butonundaki gibi bir MEGAFON (📢) — kimse atılmadığında
+   kırmızı skinli astranot uçmamalı. */
+function drawEjectObj(g,scale,ci,skip,phase){
+  if(skip){
+    g.save();
+    g.font=Math.round(34*scale)+'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+    g.textAlign='center';g.textBaseline='middle';
+    g.fillText('\u{1F4E2}',0,0);
+    g.textBaseline='alphabetic';
+    g.restore();
+    return;
+  }
+  drawBean(g,0,0,scale,ci,1,false,phase,0);
+}
+
 function playEject(d){
   closeMeeting();
   if(ejectRaf)cancelAnimationFrame(ejectRaf);   // üst üste atışta eski döngüyü kes
@@ -169,11 +185,12 @@ function playEject(d){
   $('#ejFlash').classList.remove('go');
   sfx.eject();
 
+  const isSkip=!!d.skipped;   // kimse atılmadı → megafon uçar
   const stars=[];
   for(let i=0;i<130;i++)stars.push({x:Math.random(),y:Math.random(),r:rand(.6,2.1),
     a:rand(0,6.283),sp:rand(.004,.02)});
   const name=d.name||'Oyuncu';
-  const col=COLORS[d.ci]||COLORS[0];
+  const col=isSkip?{c:'#ffd23f'}:(COLORS[d.ci]||COLORS[0]);
   const t0=performance.now();
   let flashed=false;
 
@@ -198,14 +215,16 @@ function playEject(d){
       // yatay süzülme
       const p=t/DRIFT_MS;
       const x=-80+p*(W+160);
-      g.save();g.translate(x,baseY);g.rotate(t*.0011);
+      g.save();g.translate(x,baseY);g.rotate(isSkip?Math.sin(t*.002)*.12:t*.0011);
       g.fillStyle='rgba(0,0,0,.32)';
       g.beginPath();g.ellipse(0,32,18,5.5,0,0,7);g.fill();
-      drawBean(g,0,0,1.6,d.ci,1,false,t*.001,0);
+      drawEjectObj(g,1.6,d.ci,isSkip,t*.001);
       g.restore();
-      g.font='800 18px Nunito';g.textAlign='center';
-      g.fillStyle='rgba(0,0,0,.65)';g.fillText(name,x+2,baseY-50);
-      g.fillStyle='#fff';g.fillText(name,x,baseY-52);
+      if(!isSkip){
+        g.font='800 18px Nunito';g.textAlign='center';
+        g.fillStyle='rgba(0,0,0,.65)';g.fillText(name,x+2,baseY-50);
+        g.fillStyle='#fff';g.fillText(name,x,baseY-52);
+      }
     }else if(t<DRIFT_MS+FLY_MS){
       // hızlanarak dönerek fırlama
       const p=(t-DRIFT_MS)/FLY_MS;
@@ -217,7 +236,7 @@ function playEject(d){
         g.beginPath();g.arc(-i*27,0,11,0,7);g.fill();
       }
       g.globalAlpha=1;
-      drawBean(g,0,0,1.6*(1-p*.3),d.ci,1,false,t*.001,0);
+      drawEjectObj(g,1.6*(1-p*.3),d.ci,isSkip,t*.001);
       g.restore();
       if(p>.42&&!flashed){
         flashed=true;
