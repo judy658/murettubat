@@ -206,6 +206,24 @@ class Tab {
   const losR3 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===false})()`);
   ok('arkadaki (koni disi) oyuncu gorunmuyor', losR3 === true, 'durum=' + losR3);
 
+  /* 5c) SİS pikselleri: el feneri KONİSİ dünyayla hizalı olmalı.
+     Maske konumu dünyadan ekrana YANLIŞ ötelenirse (0.4.7 hatası)
+     aydınlık/karanlık haritaya göre kayar: önümüzdeki zemin noktası
+     karanlık ya da arkadaki zemin aydınlık görünür. */
+  await A.js(`(()=>{const me=ME();me.x=me.tx=190;me.y=me.ty=150;me.angle=0;})()`); // KANTİN, sağa bak
+  await sleep(900); // kamera player'a otursun
+  const fogPx = await A.js(`(()=>{
+    const dprr=dpr, sc=view.sc;
+    const toPx=(wx,wy)=>[Math.round((vw/2+(wx-cam.x)*sc)*dprr),Math.round((vh/2+(wy-cam.y)*sc)*dprr)];
+    const px=toPx(300,150);            // önde, koni İÇİNDE, zeminde
+    const aAhead=fogC.getContext('2d').getImageData(px[0],px[1],1,1).data[3];
+    const pr=toPx(60,150);             // arkada, koni DIŞINDA, zeminde
+    const aBack=fogC.getContext('2d').getImageData(pr[0],pr[1],1,1).data[3];
+    return {ahead:aAhead,back:aBack};
+  })()`);
+  ok('sis konisi hizali: ondeki zemin aydinlik', fogPx.ahead < 120, 'a=' + fogPx.ahead);
+  ok('sis konisi hizali: arkadaki zemin karanlik', fogPx.back > 140, 'a=' + fogPx.back);
+
   /* 6) kill: sahtekâr menzildeyken öldürebilmeli, mürettebat edememeli */
   // Roller rastgele dağıtıldığı için sahtekârın hangi sekmede olduğunu bul
   const impIsA = gA.myRole === 'impostor';

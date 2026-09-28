@@ -43,9 +43,12 @@ function drawFog(ctx,player,w,h){
   ensureFloorMask();
   const sc=view.sc;
   fogX.globalCompositeOperation='destination-in';
+  /* Zemin maskesini dünya koordinatından ekrana getir.
+     Canvas CTM'si scale(sc) ile çarpıldığı için öteleme -cam + vw/(2*sc)
+     olmalı; aksi halde maske haritaya göre KAYMIŞ çizilir. */
   fogX.save();
   fogX.scale(sc,sc);
-  fogX.translate(-cam.x*sc+vw/2,-cam.y*sc+vh/2);
+  fogX.translate(-cam.x+vw/(2*sc),-cam.y+vh/(2*sc));
   fogX.drawImage(floorMask,0,0);
   fogX.restore();
   fogX.globalCompositeOperation='source-over';
