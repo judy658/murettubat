@@ -197,10 +197,14 @@ class Tab {
     return isInView(me,o)===false ? 'engelli' : 'gorunur';
   })()`);
   ok('duvar arkasindaki oyuncu gorunmuyor', losR === 'engelli', 'durum=' + losR);
-  await B.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=250;})()`);   // KANTİN'e çek
+  await B.js(`(()=>{const me=ME();me.x=me.tx=330;me.y=me.ty=240;})()`);   // A'nın tam önü (konide)
   await sleep(1400);
   const losR2 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===true})()`);
-  ok('ayni zeminde oyuncu gorunuyor', losR2 === true, 'durum=' + losR2);
+  ok('konideki oyuncu gorunuyor', losR2 === true, 'durum=' + losR2);
+  await B.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=250;})()`);   // arkada → koni dışı
+  await sleep(1400);
+  const losR3 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===false})()`);
+  ok('arkadaki (koni disi) oyuncu gorunmuyor', losR3 === true, 'durum=' + losR3);
 
   /* 6) kill: sahtekâr menzildeyken öldürebilmeli, mürettebat edememeli */
   // Roller rastgele dağıtıldığı için sahtekârın hangi sekmede olduğunu bul

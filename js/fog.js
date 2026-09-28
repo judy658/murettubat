@@ -14,27 +14,30 @@ function drawFog(ctx,player,w,h){
   fogX.globalCompositeOperation='destination-out';
   const sx=w/2+(player.x-cam.x)*view.sc;
   const sy=h/2+(player.y-cam.y)*view.sc;
-  const baseR=135*view.sc;
-  const bg=fogX.createRadialGradient(sx,sy,baseR*.15,sx,sy,baseR);
-  bg.addColorStop(0,'rgba(0,0,0,1)');bg.addColorStop(.55,'rgba(0,0,0,.95)');
-  bg.addColorStop(.82,'rgba(0,0,0,.5)');bg.addColorStop(1,'rgba(0,0,0,0)');
-  fogX.fillStyle=bg;
-  fogX.beginPath();fogX.arc(sx,sy,baseR,0,Math.PI*2);fogX.fill();
-  const coneLen=330*view.sc;
+  const coneLenW=330;                                  // dünya birimi
   const coneHalf=Math.PI/4.2;
   const angle=player.angle!=null?player.angle:(player.dir>0?0:Math.PI);
-  const cg=fogX.createRadialGradient(sx,sy,0,sx,sy,coneLen);
-  cg.addColorStop(0,'rgba(0,0,0,1)');cg.addColorStop(.45,'rgba(0,0,0,.92)');
-  cg.addColorStop(.75,'rgba(0,0,0,.45)');cg.addColorStop(1,'rgba(0,0,0,0)');
+  /* EL FENERİ: yalnızca baktığımız yön aydınlanır. Işınlar duvarda durur;
+     her ışın yürünebilir zeminden çıkana kadar yürütülür, böylece ışık
+     köşeyi dönüp arkadaki odaları AYDINLATMAZ. */
+  const RAYS=56,RAY_STEP=10;
+  const path=new Path2D();
+  path.moveTo(sx,sy);
+  for(let i=0;i<=RAYS;i++){
+    const a=angle-coneHalf+(2*coneHalf)*i/RAYS;
+    const vx=Math.cos(a),vy=Math.sin(a);
+    let dW=coneLenW;
+    for(let rr=RAY_STEP;rr<=coneLenW;rr+=RAY_STEP){
+      if(!losClear(player.x+vx*rr,player.y+vy*rr)){dW=rr-RAY_STEP;break}
+    }
+    path.lineTo(sx+vx*dW*view.sc,sy+vy*dW*view.sc);
+  }
+  path.closePath();
+  const cg=fogX.createRadialGradient(sx,sy,0,sx,sy,coneLenW*view.sc);
+  cg.addColorStop(0,'rgba(0,0,0,1)');cg.addColorStop(.5,'rgba(0,0,0,.92)');
+  cg.addColorStop(.78,'rgba(0,0,0,.45)');cg.addColorStop(1,'rgba(0,0,0,0)');
   fogX.fillStyle=cg;
-  fogX.beginPath();fogX.moveTo(sx,sy);
-  fogX.arc(sx,sy,coneLen,angle-coneHalf,angle+coneHalf);
-  fogX.closePath();fogX.fill();
-  const coreR=55*view.sc;
-  const cg2=fogX.createRadialGradient(sx,sy,0,sx,sy,coreR);
-  cg2.addColorStop(0,'rgba(0,0,0,1)');cg2.addColorStop(1,'rgba(0,0,0,0)');
-  fogX.fillStyle=cg2;
-  fogX.beginPath();fogX.arc(sx,sy,coreR,0,Math.PI*2);fogX.fill();
+  fogX.fill(path);
   /* Işığı zemine kes: duvar/boşluk arkası karanlık kalır,
      oyuncular da zaten duvar arkasında çizilmez. */
   ensureFloorMask();
@@ -53,19 +56,15 @@ function isInView(player,target){
   if(!player||!target)return false;
   const dx=target.x-player.x,dy=target.y-player.y;
   const dist=Math.hypot(dx,dy);
-  const baseR=135;
   const coneLen=330;
   const coneHalf=Math.PI/4.2;
   const angle=player.angle!=null?player.angle:(player.dir>0?0:Math.PI);
-  let ok=false;
-  if(dist<=baseR)ok=true;
-  else if(dist<=coneLen){
-    const targetAngle=Math.atan2(dy,dx);
-    let diff=Math.abs(targetAngle-angle);
-    if(diff>Math.PI)diff=2*Math.PI-diff;
-    if(diff<=coneHalf)ok=true;
-  }
-  if(!ok)return false;
+  /* Yalnızca baktığımız koni aydınlanır: 360° çekirdek çevre YOK. */
+  if(dist>coneLen)return false;
+  const targetAngle=Math.atan2(dy,dx);
+  let diff=Math.abs(targetAngle-angle);
+  if(diff>Math.PI)diff=2*Math.PI-diff;
+  if(diff>coneHalf)return false;
   /* Duvar arkasındaki oyuncu GÖRÜNMEZ: düz çizgi tüm koridorlar dahil
      yürünebilir zeminden geçmiyorsa görüş engellenir. */
   return !wallBlocks(player.x,player.y,target.x,target.y);
