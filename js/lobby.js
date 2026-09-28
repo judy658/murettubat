@@ -39,6 +39,10 @@ function renderLobby(){
 function toLobbyAll(){started=false;S.phase='lobby';gameOver=false;killCooldown=0;
   closeMeeting();closeEject();
   players.forEach(p=>{p.ready=false;p.dead=false;p.gone=false;p.reported=false});roles.clear();controls=false;
+  /* LB sunucudan gelen son lobi olup oyun öncesi "herkes hazır" halini
+     taşıyor. Sunucu hazır durumunu sıfırladığı için anında aynı hale
+     getiriyoruz, yoksa başlat butonu yanlış açık görünür. */
+  if(LB&&LB.ps)LB.ps.forEach(p=>{p.r=!!p.h});
   $('#deathScreen').classList.remove('on');$('#resultScreen').className='';
   show('scr-lobby');renderLobby();
   sysChat('Oyun bitti, lobiye dönüldü.');}

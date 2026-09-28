@@ -124,6 +124,7 @@
 .mt-chat .msgs{max-height:96px}
 #mtSkip.ready{box-shadow:0 6px 0 var(--cyansh),0 0 20px 5px rgba(63,214,255,.55)}
 #mtSkip.picked{border-color:var(--yellow);background:rgba(60,48,8,.9)}
+#mtSkip.locked{opacity:.32;pointer-events:none;filter:grayscale(1)}
 
 /* ================================================================== */
 /* UZAYA ATMA ANİMASYONU                                               */

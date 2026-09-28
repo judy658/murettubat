@@ -175,9 +175,13 @@ function serverMsg(d){
       updateVotes(d);
       break;
 
-    case 'eject':
-      playEject(d);
-      break;
+      case 'eject':
+        /* Atılan oyuncu HİÇBİR koşulda ceset bırakmaz: sunucu 'end'
+           gönderdiğinde oyuncu listesi gelmediği için atılan oyuncuyu
+           burada sahneden tamamen siliyoruz. */
+        if(d.id){const ex=players.get(d.id);if(ex){ex.dead=true;ex.gone=true;ex.killed=false;ex.reported=true}}
+        playEject(d);
+        break;
 
     case 'resume':
       closeEject();closeMeeting();

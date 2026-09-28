@@ -315,12 +315,13 @@ function resetPositions(room) {
   });
 }
 
-function startGame(room) {
-  if (room.started) return;
+function startGame(room, askerWs) {
+  const hint = (text) => { if (askerWs) send(askerWs, { t: 'sys', text }); };
+  if (room.started) return hint('Oyun zaten başlamış.');
   const players = [...room.players.values()];
-  if (players.length < 2) return;
+  if (players.length < 2) return hint('Başlamak için en az 2 oyuncu gerekli.');
   const notReady = players.filter(p => !p.ready && p.id !== room.hostId);
-  if (notReady.length) return; // henüz herkes hazır değil
+  if (notReady.length) return hint('Henüz herkes hazır değil: ' + notReady.map(p => p.name).join(', '));
 
   assignRoles(room);
   room.started = true;
@@ -477,6 +478,7 @@ function castVote(room, voterId, targetId) {
   if (!m || room.phase !== 'meeting' || m.finishing) return;
   const v = room.players.get(voterId);
   if (!v) return;
+  if (v.dead || v.gone) return;     // hayaletler oy veremez
 
   let t = targetId === 'skip' ? 'skip' : String(targetId == null ? '' : targetId);
   if (t !== 'skip') {
@@ -488,10 +490,10 @@ function castVote(room, voterId, targetId) {
   m.votes.set(voterId, t);      // oy değiştirilebilir
   pushVotes(room);
 
-  // HERKES OY KULLANDIYSA beklemeden sonuca geç
-  if (room.players.size && [...room.players.values()].every(q => m.votes.has(q.id))) {
-    resolveMeeting(room);
-  }
+  /* HERKES OY KULLANDIYSA beklemeden sonuca geç.
+     Hayaletler oy veremediği için yalnızca HAYATTAKİLER sayılır. */
+  const voters = [...room.players.values()].filter(q => !q.dead && !q.gone);
+  if (voters.length && voters.every(q => m.votes.has(q.id))) resolveMeeting(room);
 }
 
 function resolveMeeting(room) {
@@ -541,15 +543,16 @@ function finalizeMeeting(room) {
   if (!m) return;
   room.meeting = null;
 
-  if (m.winner) { endGame(room, m.winner); return; }
-
-  /* Dışarı atılan oyuncu sahneden tamamen kalkar: artık hareket edemez,
-     raporlanamaz ve hayatta sayılmaz. */
+  /* Dışarı atılan oyuncu sahneden TAMAMEN kalkar: artık hareket edemez,
+     raporlanamaz, hayatta sayılmaz ve çizilmez. Sahte kar atılırsa oyun
+     bittiği için bu işaret, kazanan kontrolünden ÖNCE yapılmalı. */
   if (m.ejectedId) {
     room.reported.add(m.ejectedId);
     const ex = room.players.get(m.ejectedId);
     if (ex) { ex.dead = true; ex.deadAt = Date.now(); ex.killed = false; ex.gone = true; }
   }
+
+  if (m.winner) { endGame(room, m.winner); return; }
 
   const alive = [...room.players.values()].filter(p => !p.dead && !p.gone);
   const imp = alive.filter(p => room.roles.get(p.id) === 'impostor').length;
@@ -632,11 +635,20 @@ wss.on('connection', ws => {
       }
 
       case 'start':
-        if (p.id === room.hostId) startGame(room);
+        if (p.id === room.hostId) startGame(room, p.ws);
         break;
 
       case 'back':
+        if (room.phase === 'lobby') break;
+        /* Host oyunu tek başına sıfırlar ve HERKES lobide döner.
+           Host dönmemişse bile oyuncu sonuç ekranında sıkışmasın diye
+           yalnızca kendisini lobide hazır beklemeye alırız. */
         if (p.id === room.hostId) toLobby(room);
+        else {
+          p.ready = false;
+          send(ws, { t: 'back' });
+          pushLobby(room);
+        }
         break;
 
       case 'p': {

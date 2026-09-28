@@ -47,7 +47,7 @@ function init(){
     if(k==='q'){e.preventDefault();tryKill();}
     else if(k==='r'){e.preventDefault();tryReport();}});
   $('#deathContinue').onclick=()=>{sfx.click();$('#deathScreen').classList.remove('on');};
-  $('#rsBack').onclick=()=>{sfx.click();toLobbyAll();};
+  $('#rsBack').onclick=()=>{sfx.click();if(canOnline())sendMsg({t:'back'});toLobbyAll();};
   requestAnimationFrame(loop);
 }
 init();

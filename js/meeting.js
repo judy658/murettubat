@@ -66,6 +66,7 @@ function startMeetingTimer(){
 
 function castVote(target){
   if(!meeting)return;
+  if((players.get(myId)||{}).dead)return;   // hayaletler oy veremez
   sfx.vote();
   if(S.mode==='online')sendMsg({t:'vote',target});
   else soloVote(target);
@@ -86,9 +87,13 @@ function renderMeeting(){
   const rp=(players.get(meeting.reporter)||{}).name||'?';
   const vm=(players.get(meeting.victim)||{}).name||'?';
   $('#mtTitle').innerHTML=esc(rp)+' <b>'+esc(vm)+'</b> CESEDİNİ RAPORLADI';
-  const done=meeting.players.filter(q=>q.voted).length;
-  $('#mtSub').innerHTML=meeting.myVote
-    ? 'Oyunu kullandın. <b>'+done+'/'+meeting.players.length+'</b> oy kullanıldı — istediğin an değiştirebilirsin.'
+  const done=meeting.players.filter(q=>q.voted&&!q.dead).length;
+  const aliveN=meeting.players.filter(q=>!q.dead).length;
+  const iGhost=!!(players.get(myId)||{}).dead;
+  $('#mtSub').innerHTML=iGhost
+    ? 'Ölüsün — toplantıyı izleyebilirsin ama <b>oy kullanamazsın</b>.'
+    : meeting.myVote
+    ? 'Oyunu kullandın. <b>'+done+'/'+aliveN+'</b> oy kullanıldı — istediğin an değiştirebilirsin.'
     : 'Kimi suçluyorsun? Bir kart seç ya da <b>BOŞ BIRAK</b>. Süre bitmeden oyunu değiştirebilirsin.';
 
   const grid=$('#mtGrid');grid.innerHTML='';
@@ -113,6 +118,7 @@ function renderMeeting(){
   const sk=$('#mtSkip');
   sk.classList.toggle('picked',meeting.myVote==='skip');
   sk.classList.toggle('ready',!meeting.myVote);
+  sk.classList.toggle('locked',iGhost);      // hayalet boş bırak da seçemez
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,6 +265,14 @@ let soloVotes={}, soloTimers=[];
 
 function soloClearTimers(){soloTimers.forEach(clearTimeout);soloTimers=[]}
 
+/* Dışarı atılan oyuncu ceset bırakmaz: hem ölü hem sahneden silinir.
+   Böylece hiçbir koşulda ekranda cesedi görünmez. */
+function markEjected(id){
+  const p=players.get(id);
+  if(!p)return;
+  p.reported=true;p.dead=true;p.killed=false;p.gone=true;
+}
+
 function soloReport(victim){
   if(!victim)return;
   soloClearTimers();soloVotes={};
@@ -270,11 +284,12 @@ function soloReport(victim){
     players:[...players.values()].map(p=>({id:p.id,n:p.name,ci:p.ci,dead:p.dead,voted:false})),
     p:null,myVote:null,
   });
-  // Botlar sırayla, insan oyuncu biraz düşünür
-  [...players.values()].filter(p=>p.bot).forEach((b,i)=>{
+  /* Yalnızca HAYATTAKİ botlar oy kullanır; cesedi raporlanan hayalet oy kullanmaz. */
+  [...players.values()].filter(p=>p.bot&&!p.dead).forEach((b,i)=>{
     soloTimers.push(setTimeout(()=>{
       if(!meeting)return;
-      const others=[...players.keys()].filter(id=>id!==b.id);
+      const others=[...players.values()].filter(p=>!p.dead&&p.id!==b.id).map(p=>p.id);
+      if(!others.length)return;
       soloCastVote(b.id,Math.random()<.3?'skip':pick(others));
     },2600+i*2100+rand(0,1700)));
   });
@@ -284,13 +299,16 @@ function soloVote(target){soloCastVote(myId,target)}
 
 function soloCastVote(voter,target){
   if(!meeting)return;
+  const pv=players.get(voter);
+  if(!pv||pv.dead||pv.gone)return;          // hayaletler oy veremez
   soloVotes[voter]=target;
   const q=meeting.players.find(x=>x.id===voter);
   if(q)q.voted=true;
   if(voter===myId)meeting.myVote=target;
   renderMeeting();
-  // Herkes oy kullandıysa beklemeden sonuca geç
-  if(meeting.players.every(x=>x.voted))setTimeout(soloResolve,1000);
+  /* Herkes oy kullandıysa beklemeden sonuca geç (yalnızca hayattakiler). */
+  const voters=meeting.players.filter(x=>!x.dead);
+  if(voters.length&&voters.every(x=>x.voted))setTimeout(soloResolve,1000);
 }
 
 function soloResolve(){
@@ -302,7 +320,7 @@ function soloResolve(){
   if(tied||bn<=0)best='skip';
   const v=best==='skip'?null:players.get(best);
   const role=v?roles.get(best):null;
-  if(v)markReported(v.id);
+  if(v)markEjected(v.id);
   closeMeeting();
   playEject({id:v?v.id:null,name:v?v.name:null,ci:v?v.ci:0,role,skipped:!v});
   soloTimers.push(setTimeout(soloAfterEject,EJECT_TOTAL+1800));
@@ -312,7 +330,7 @@ function soloAfterEject(){
   soloClearTimers();
   closeEject();
   if(gameOver)return;
-  const alive=[...players.values()].filter(p=>!p.dead);
+  const alive=[...players.values()].filter(p=>!p.dead&&!p.gone);
   const imp=alive.filter(p=>roles.get(p.id)==='impostor').length;
   const crew=alive.filter(p=>roles.get(p.id)==='crew').length;
   if(imp===0)return endGame('crew');

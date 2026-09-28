@@ -170,14 +170,21 @@ async function makeBody(room, victim) {
   await sleep(200);
   ok('oy değiştirilebiliyor', last(rep1, 'votes').myVote === 'skip');
 
-  /* HERKES oy kullanınca beklemeden sonuç çıkmalı (90 sn beklenmiyor) */
+  /* HERKES oy kullanınca beklemeden sonuç çıkmalı (90 sn beklenmiyor).
+     Hayalet (victim1) oy kullanamaz, bu yüzden beklenen oy sayısı 4'tür. */
   const t0 = Date.now();
   send(rep1, { t: 'vote', target: r1.imp.you });
   r1.crew[2].you && send(r1.crew[2], { t: 'vote', target: r1.imp.you });
   r1.crew[3].you && send(r1.crew[3], { t: 'vote', target: r1.imp.you });
-  send(victim1, { t: 'vote', target: r1.imp.you });
+  send(victim1, { t: 'vote', target: r1.imp.you });        // HAYALET OYU — reddedilmeli
   send(r1.imp, { t: 'vote', target: 'skip' });            // sahtekâr kendine oy veremez
   await sleep(500);
+
+  /* Hayaletin oyu sayılmamalı */
+  const vAfterGhost = last(rep1, 'votes');
+  ok('hayaletin oyu kabul edilmedi', !!(vAfterGhost && vAfterGhost.myVote === r1.imp.you));
+  ok('hayalet "oy kullandı" görünmüyor',
+    !!(vAfterGhost && vAfterGhost.players.every(p => p.voted === (p.id !== victim1.you))));
 
   const ej1 = last(r1.imp, 'eject');
   ok('herkes oy kullanınca beklemeden sonuç çıktı', !!ej1);
@@ -187,8 +194,11 @@ async function makeBody(room, victim) {
   ok('rol yalnızca sonuçta açıklandı', !!(ej1 && ej1.role === 'impostor'));
   ok('sahtekâr atılınca mürettebat kazandı', !!(ej1 && ej1.winner === 'crew'));
   ok('oy dökümü sonuçta açıklandı', !!(ej1 && ej1.votes.length === 5));
-  ok('sonuç ekranında oy kullanan herkes görünüyor',
-    !!(ej1 && ej1.votes.every(x => x.vote)));
+  ok('sonuç ekranında herkes listelendi (oy kullanmayan da görünür)',
+    !!(ej1 && ej1.votes.length === 5));
+  ok('hayalet listede ama oyu boş', !!(ej1 && ej1.votes.some(x => x.id === victim1.you && !x.vote && x.dead)));
+  ok('hayattaki herkes oy kullandı',
+    !!(ej1 && ej1.votes.filter(x => !x.dead).every(x => x.vote)));
   info('oy dökümü: ' + JSON.stringify((ej1.votes || []).map(x => [x.n, x.vote])));
 
   await sleep(EJECT_WAIT);
@@ -211,15 +221,20 @@ async function makeBody(room, victim) {
   ok('2. turda toplantı açıldı', count(r2.imp, 'meet') === 1);
 
   /* Mürettebattan birini atıyoruz: o, artık sahnede olmamalı.
-     OYUNDAKİ HERKES oy kullanmalı, atılan kişi de dahil. */
+     OYUNDAKİ HERKES oy kullanmalı. Hayalet (victim2) oy kullanamaz,
+     bu yüzden beklenen oy sayısı 4'tür. */
   const target2 = r2.crew[2];
   const votes2 = [
     [rep2, target2.you], [target2, 'skip'], [r2.crew[3], target2.you],
-    [victim2, target2.you], [r2.imp, 'skip'],
+    [r2.imp, target2.you],
   ];
-  ok('2. turda 5 oy kullanıcısı var', votes2.length === r2.all.length);
+  ok('2. turda 4 hayattaki oy kullanıcısı var', votes2.length === 4);
   for (const [who, what] of votes2) send(who, { t: 'vote', target: what });
+  send(victim2, { t: 'vote', target: r2.crew[3].you });     // HAYALET OYU — reddedilmeli
   await sleep(500);
+  const v2 = last(r2.imp, 'votes');
+  ok('2. turda hayaletin oyu reddedildi',
+    !!(v2 && v2.myVote === target2.you && v2.players.every(p => p.voted === (p.id !== victim2.you))));
   const ej2 = last(r2.imp, 'eject');
   ok('mürettebat üyesi dışarı atıldı', !!(ej2 && ej2.id === target2.you));
   ok('atılan mürettebat olarak açıklandı', !!(ej2 && ej2.role === 'crew'));
@@ -290,6 +305,64 @@ async function makeBody(room, victim) {
         devrede olduğu görülür.
      ================================================================ */
   ok('toplantı süresi sabiti 90', true);
+
+  /* ================================================================
+     6) OYUN BİTTİĞİNDE LOBİYE DÖNÜŞ
+        Sonuç ekranındaki "LOBİYE DÖN" düğmesi sunucuya bildirilmiyordu;
+        bu yüzden sunucuda "oyun başladı" bayrağı kalıyor, hazır durumları
+        sıfırlanmıyordu ve host bir daha oyun başlatamıyordu.
+     ================================================================ */
+  const L = [];
+  for (let i = 0; i < 3; i++) L.push(bot());
+  for (const b of L) await open(b);
+  send(L[0], { t: 'create', n: 'L1', ci: i0() }); await sleep(200);
+  send(L[1], { t: 'join', code: L[0].code, n: 'L2', ci: i0() }); await sleep(200);
+  send(L[2], { t: 'join', code: L[0].code, n: 'L3', ci: i0() }); await sleep(200);
+  send(L[1], { t: 'ready', v: true }); await sleep(100);
+  send(L[2], { t: 'ready', v: true }); await sleep(100);
+
+  /* Herkes hazır olmadan başlatılamamalı VE sebebi bildirilmeli */
+  send(L[0], { t: 'ready', v: true });
+  L[0].msgs.length = 0;
+  send(L[2], { t: 'ready', v: false }); await sleep(100);
+  send(L[0], { t: 'start' }); await sleep(300);
+  ok('lobi: herkes hazır değilken oyun başlamadı', count(L[0], 'go') === 0);
+  ok('lobi: başlatılamayınca sebep yazıldı',
+    !!(last(L[0], 'sys') && /hazır değil/i.test(last(L[0], 'sys').text || '')));
+  send(L[2], { t: 'ready', v: true }); await sleep(150);
+  send(L[0], { t: 'start' }); await sleep(400);
+  ok('lobi: ilk oyun başladı', count(L[0], 'go') === 1);
+
+  /* Sahtekâr birini öldürüp oyunu bitirsin (1 imp + 1 crew kalmalı) */
+  const impL = L.find(b => b.role === 'impostor');
+  const crewL = L.filter(b => b !== impL);
+  await makeBody({ imp: impL }, crewL[0]);
+  await sleep(400);
+  ok('lobi: oyun bitti', !!last(impL, 'end'));
+
+  /* "LOBİYE DÖN" → sunucuya bildirilmeli ve herkes lobiye dönmeli */
+  L.forEach(b => { b.msgs.length = 0; });
+  send(L[0], { t: 'back' }); await sleep(450);
+  ok('lobi: herkese dönüldü mesajı gitti', L.every(b => count(b, 'back') === 1));
+  const lbL = last(L[0], 'lb');
+  ok('lobi: oyun sıfırlandı, 3 oyuncu duruyor', !!(lbL && lbL.lobby.ps.length === 3));
+  ok('lobi: yalnızca host hazır sayıldı',
+    !!(lbL && lbL.lobby.ps.filter(p => p.r).length === 1 &&
+       lbL.lobby.ps.find(p => p.h).r === true));
+
+  /* Yeni oyun başlatılabilmeli */
+  send(L[1], { t: 'ready', v: true }); await sleep(100);
+  send(L[2], { t: 'ready', v: true }); await sleep(150);
+  send(L[0], { t: 'start' }); await sleep(450);
+  ok('lobi: ikinci oyun başladı', count(L[0], 'go') === 1);
+  ok('lobi: yeni oyun atılarda da görünür', !!last(L[0], 'go'));
+
+  /* Host dönmemişken diğer oyuncu da sonuç ekranından çıkabilmeli */
+  L.forEach(b => { b.msgs.length = 0; });
+  send(L[1], { t: 'back' }); await sleep(350);
+  ok('lobi: host olmayan da lobiden çıkabildi', count(L[1], 'back') === 1);
+  ok('lobi: host olmayan dönerken oyun bozulmadı', count(L[0], 'back') === 0);
+  L.forEach(kill);
 
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));

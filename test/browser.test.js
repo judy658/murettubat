@@ -287,6 +287,16 @@ class Tab {
   ok('toplanti sayaci 90 saniyeden basladi', tsec > 80 && tsec <= 90, 'saniye=' + tsec);
   ok('oy kartlari cizildi', (await REPORTER.js(`document.querySelectorAll('#mtGrid .mt-card').length`)) === 4);
   ok('hayalet karti pasif isaretli', (await VICTIM.js(`[...document.querySelectorAll('#mtGrid .mt-card')].some(c=>c.classList.contains('dead'))`)) === true);
+  /* Hayalet oy KULLANAMAMALI: boş bırak kilidi de kapalı, kart tıklaması işe yaramıyor */
+  ok('hayalette boş bırak butonu kilitli', (await VICTIM.js(`document.querySelector('#mtSkip').classList.contains('locked')`)) === true);
+  await VICTIM.js(`castVote('skip')`);
+  await VICTIM.js(`[...document.querySelectorAll('#mtGrid .mt-card')].find(c=>!c.classList.contains('dead')&&!c.classList.contains('mine')).click()`);
+  await sleep(400);
+  ok('hayaletin oyu kaydedilmedi', (await VICTIM.js(`meeting.myVote===null`)) === true);
+  ok('hayalettin oy kullanamiyor uyarisi goruldu',
+    /oy kullanamazsın/i.test(await VICTIM.js(`document.querySelector('#mtSub').textContent`)),
+    await VICTIM.js(`document.querySelector('#mtSub').textContent`));
+  ok('hayalet oy sayacini gormuyor', !/\d+\/\d+/.test(await VICTIM.js(`document.querySelector('#mtSub').textContent`)));
   ok('kendim kartin tıklanamaz', (await REPORTER.js(`document.querySelector('#mtGrid .mt-card.mine')!==null`)) === true);
   ok('raporlayan kafeteryada', !!(await REPORTER.js(`(()=>{const m=ME();return m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)));
   ok('hayalet de kafeteryada ama olu', (await VICTIM.js(`(()=>{const m=ME();return m.dead===true&&m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)) === true);
@@ -334,6 +344,26 @@ class Tab {
   ok('sonuc ekrani gorundu',
     /sonuç|SAHTEKÂR|MÜRETTEBAT|KAZANDI/i.test(await REPORTER.js(`document.querySelector('#resultScreen').textContent`)));
   ok('atilan oyuncu sahnede cizilmiyor', (await REPORTER.js(`ejecting===false`)) === true);
+  /* Sahtekâr atılsa da ceset bırakmaz: gone + dead işaretli */
+  ok('atilan sahtekarin cesedi hic yok', (await REPORTER.js(
+    `(()=>{const p=players.get(${JSON.stringify(impId)});return p&&p.gone===true&&p.dead===true&&p.reported===true})()`)) === true);
+
+  /* Oyun bitti → "LOBİYE DÖN" sunucuya bildirmeli, hazır durumları
+     sıfırlanmalı ve HOST yeniden oyun başlatabilmeli. */
+  await M[0].js(`document.querySelector('#rsBack').click()`);
+  for (const t of M) await t.until('S.phase==="lobby"', 12000, t.tag + ' lobiye donmedi');
+  await M[0].until(`!!LB && LB.ps.filter(p=>p.r).length===1 && LB.ps.find(p=>p.h).r===true`, 12000, 'host hazir sifirlandi');
+  ok('lobide yalnizca host hazir', (await M[0].js(`LB.ps.filter(p=>p.r).length===1 && LB.ps.find(p=>p.h).r===true`)) === true);
+  ok('lobide 4 kisi kaldi', (await M[0].js(`LB.ps.length`)) === 4,
+    await M[0].js(`LB.ps.length`));
+  for (let i = 1; i < 4; i++) await M[i].js(`document.querySelector('#readyBtn').click()`);
+  await sleep(500);
+  await M[0].js(`document.querySelector('#startBtn').click()`);
+  for (const t of M) await t.until('S.phase==="game" && !!roles.get(myId)', 20000, t.tag + ' ikinci oyun baslamadi');
+  ok('lobiden ikinci oyun baslatilabildi', (await M[0].js(`S.phase==="game"`)) === true,
+    await M[0].js(`S.phase+' startBtn='+document.querySelector('#startBtn').disabled`));
+  const g2 = await M[0].js(`players.size`);
+  ok('ikinci oyunda 4 oyuncu', g2 === 4, 'oyuncu=' + g2);
 
   const errM = M.flatMap(t => t.errors.filter(e => !/favicon|ERR_|Failed to load resource/.test(e)));
   ok('toplanti sekmelerinde JS hatasi yok', errM.length === 0, errM.join(' | '));
