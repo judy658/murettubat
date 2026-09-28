@@ -130,13 +130,15 @@ const DRIFT_MS=3200, FLY_MS=1600, EJECT_TOTAL=6400;
 
 function playEject(d){
   closeMeeting();
+  if(ejectRaf)cancelAnimationFrame(ejectRaf);   // üst üste atışta eski döngüyü kes
   ejecting=true;controls=false;
   const scr=$('#ejectScreen');
   const cv=$('#ejCanvas'),g=cv.getContext('2d');
   const size=()=>{cv.width=Math.max(1,cv.clientWidth*dpr);cv.height=Math.max(1,cv.clientHeight*dpr)};
-  size();
-  onresize_(()=>size());
+  ensureEjectResize();
   scr.classList.add('on');
+  size();                     // ÖNCE ekran açılmalı: display:none iken clientWidth=0 olur,
+                              // canvas 1×1 kalır ve animasyon "renk noktacıkları" gibi görünür.
   $('#ejectScreen .ej-text').classList.remove('on');
   $('#ejFlash').classList.remove('go');
   sfx.eject();
@@ -150,6 +152,7 @@ function playEject(d){
   let flashed=false;
 
   const step=now=>{
+    if(cv.width<4||cv.height<4){size();ejectRaf=requestAnimationFrame(step);return}
     const t=now-t0;
     const W=cv.width/dpr,H=cv.height/dpr;
     g.setTransform(dpr,0,0,dpr,0,0);
@@ -252,9 +255,19 @@ function snapSelfTo(map){
 function closeDeathScreen(){const d=$('#deathScreen');if(d)d.classList.remove('on')}
 /* Cesedi "raporlandı" işaretle — artık tekrar raporlanamaz (solo mod) */
 function markReported(id){const p=players.get(id);if(p){p.reported=true;p.gone=true}}
-/* Pencere yeniden boyutlanınca çalışacak geçici dinleyici (animasyon için) */
-const _rz=[];
-function onresize_(fn){_rz.push(fn);addEventListener('resize',fn)}
+/* Pencere yeniden boyutlanınca atma canvas'ını yeniden boyutlandır.
+   Tek kalıcı dinleyici: her atışta yenisini ekleyen (sızan) yapı yerine
+   modül başına bir kez bağlanır, boyutlandırma yalnızca atış sırasında yapılır. */
+let _ejectResizeBound=false;
+function ensureEjectResize(){
+  if(_ejectResizeBound)return;
+  _ejectResizeBound=true;
+  addEventListener('resize',()=>{
+    if(!ejecting)return;
+    const cv=$('#ejCanvas');
+    if(cv){cv.width=Math.max(1,cv.clientWidth*dpr);cv.height=Math.max(1,cv.clientHeight*dpr)}
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* SOLO MOD — sunucu yok, istemci kendi otoritesidir                    */

@@ -185,6 +185,23 @@ class Tab {
   const posSeen = await B.js(`(()=>{const o=[...players.values()].find(p=>p.id!==myId);return {x:Math.round(o.x),y:Math.round(o.y)};})()`);
   ok('konum delta sunucudan geldi', Math.abs(posSeen.x - 300) < 90, 'x=' + posSeen.x + ' y=' + posSeen.y);
 
+  /* 5b) GÖRÜŞ: duvar arkasındaki oyuncu görülmemeli (menzil+açı izin verse bile) */
+  await A.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=240;})()`);   // KANTİN
+  await B.js(`(()=>{const me=ME();me.x=me.tx=390;me.y=me.ty=280;})()`);   // GÜVENLİK (duvar arkası)
+  await sleep(1400);
+  const losR = await A.js(`(()=>{
+    const me=ME(),o=[...players.values()].find(p=>p.id!==myId);
+    if(!o)return 'yok';
+    const d=Math.hypot(o.x-me.x,o.y-me.y);
+    if(d>150)return 'uzak:'+Math.round(d);          // menzil kısıtlamasını atla
+    return isInView(me,o)===false ? 'engelli' : 'gorunur';
+  })()`);
+  ok('duvar arkasindaki oyuncu gorunmuyor', losR === 'engelli', 'durum=' + losR);
+  await B.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=250;})()`);   // KANTİN'e çek
+  await sleep(1400);
+  const losR2 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===true})()`);
+  ok('ayni zeminde oyuncu gorunuyor', losR2 === true, 'durum=' + losR2);
+
   /* 6) kill: sahtekâr menzildeyken öldürebilmeli, mürettebat edememeli */
   // Roller rastgele dağıtıldığı için sahtekârın hangi sekmede olduğunu bul
   const impIsA = gA.myRole === 'impostor';
@@ -323,6 +340,8 @@ class Tab {
   await mImp.js(`castVote('skip')`);
   for (const t of M) await t.until(`ejecting===true`, 15000, t.tag + ' atma animasyonu baslamadi');
   ok('herkes oy kullaninca uzaya atma basladi', true);
+  ok('atma canvas i boyutlu (1x1 bug i)', (await REPORTER.js(`document.querySelector('#ejCanvas').width>8 && document.querySelector('#ejCanvas').height>8`)) === true,
+    'w=' + await REPORTER.js(`document.querySelector('#ejCanvas').width`) + ' h=' + await REPORTER.js(`document.querySelector('#ejCanvas').height`));
   ok('toplanti ekrani kapandi',
     (await REPORTER.js(`document.querySelector('#meetingScreen').classList.contains('on')`)) === false);
   ok('atma ekrani acildi',
