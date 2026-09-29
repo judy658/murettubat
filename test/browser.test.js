@@ -8,7 +8,8 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const SITE = 'http://localhost:3000/Among3.html';
+const GAME_PORT = process.env.PORT || 3000;
+const SITE = 'http://localhost:' + GAME_PORT + '/Among3.html';
 const DEBUG_PORT = 9333;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = [];
@@ -72,7 +73,7 @@ class Tab {
 (async () => {
   /* Sunucu ayakta mı? Değilse anlaşılır mesle verip çık. */
   try {
-    await fetch('http://localhost:3000/health');
+    await fetch('http://localhost:' + GAME_PORT + '/health');
   } catch (e) {
     console.error('Sunucu ayakta degil. Once "npm start" calistir, sonra bu testi tekrar et.');
     process.exit(2);

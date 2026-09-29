@@ -9,7 +9,8 @@
 */
 const WebSocket = require('ws');
 
-const URL = 'ws://localhost:3000/ws';
+const GAME_PORT = process.env.PORT || 3000;
+const URL = 'ws://localhost:' + GAME_PORT + '/ws';
 const SPAWN = { x: 190, y: 150 };
 const KANTIN = { x: 50, y: 50, w: 280, h: 200 };   // server/index.js ile aynı
 const EJECT_WAIT = 12500;                            // EJECT_MS (11000) + pay
@@ -73,7 +74,7 @@ async function makeBody(room, victim) {
 }
 
 (async () => {
-  fetch('http://localhost:3000/health').catch(() => {
+  fetch('http://localhost:' + GAME_PORT + '/health').catch(() => {
     console.error('Sunucu ayakta degil. Once "npm start" calistir.');
     process.exit(2);
   });
@@ -88,13 +89,14 @@ async function makeBody(room, victim) {
   /* Cesedi kafeteryadan UZAKTA oluştur ki ışınlama davranışı ölçülebilsin:
      toplantıda ceset ne kafeteryaya taşınmalı ne de görünmeli. makeBody
      yerine konumları doğrudan veriyoruz (goP pozisyonları 2 sn'de bir
-     keyframe ile tazelenir, anlık okunursa sahtekâr yanlış yere gider). */
-  send(victim1, { t: 'p', x: 1100, y: 620 });
-  send(r1.imp, { t: 'p', x: 1100, y: 620 });
+     keyframe ile tazelenir, anlık okunursa sahtekâr yanlış yere gider).
+     Koordinatlar harita içinde olmalı: sunucu artık harita dışını kırpıyor. */
+  send(victim1, { t: 'p', x: 900, y: 600 });
+  send(r1.imp, { t: 'p', x: 900, y: 600 });
   await sleep(300);
   send(r1.imp, { t: 'kill', target: victim1.you });
   await sleep(350);
-  const body1 = { x: 1100, y: 620 };
+  const body1 = { x: 900, y: 600 };
 
   ok('ceset oluştu', count(r1.imp, 'killed') === 1);
 
@@ -340,7 +342,7 @@ async function makeBody(room, victim) {
   const callerA = rA.crew[0];
 
   /* Butondan uzakken çağırma reddedilmeli */
-  send(callerA, { t: 'p', x: 1100, y: 620 });
+  send(callerA, { t: 'p', x: 900, y: 600 });
   await sleep(300);
   send(callerA, { t: 'emerg' });
   await sleep(250);
@@ -457,6 +459,39 @@ async function makeBody(room, victim) {
   ok('lobi: host olmayan da lobiden çıkabildi', count(L[1], 'back') === 1);
   ok('lobi: host olmayan dönerken oyun bozulmadı', count(L[0], 'back') === 0);
   L.forEach(kill);
+
+  /* ================================================================
+     7) İKİ SAHTEKÂR: BİRİ ATILINCA OYUN SÜRMELİ
+        8 kişilik odada 2 sahtekâr dağıtılır. Eskiden atılan oyuncunun
+        rolü sahtekârsa oyun anında "mürettebat kazandı" diyordu; oysa
+        ikinci sahtekâr hâlâ hayatta. Denge ATILMA SONRASI sayılmalı:
+        kalan sahtekâr 0'sa mürettebat, çoğunluğa ulaştıysa sahtekârlar.
+     ================================================================ */
+  const r7 = await makeRoom(8, 'Y');
+  const imps7 = r7.all.filter(b => b.role === 'impostor');
+  info('7. tur roller: ' + r7.all.map(b => b.role).join(','));
+  ok('8 kişilik odada 2 sahtekâr var', imps7.length === 2);
+
+  const out7 = imps7[0];
+  const alive7 = imps7[1];
+  /* Oy olmadan atılma olmaz: masadaki butonla acil durum toplantısı çağır. */
+  const caller7 = r7.all.find(b => b.role === 'crew');
+  send(caller7, { t: 'p', x: 190, y: 150 });
+  await sleep(300);
+  send(caller7, { t: 'emerg' });
+  await sleep(400);
+  ok('7. turda toplantı açıldı', count(alive7, 'meet') === 1);
+  for (const b of r7.all) send(b, { t: 'vote', target: b === out7 ? 'skip' : out7.you });
+  await sleep(500);
+  const ej7 = last(alive7, 'eject');
+  ok('sahtekârlardan biri atıldı', !!(ej7 && ej7.id === out7.you));
+  ok('atılan sahtekâr olarak açıklandı', !!(ej7 && ej7.role === 'impostor'));
+  ok('tek sahtekâr atılınca oyun BİTMEDİ (winner yok)', !!(ej7 && !ej7.winner));
+
+  await sleep(EJECT_WAIT);
+  ok('atılma sonrası oyuna dönüldü (resume)', !!last(alive7, 'resume'));
+  ok('ikinci sahtekâr hayatta, oyun sürüyor', !alive7.end);
+  r7.all.forEach(kill);
 
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));

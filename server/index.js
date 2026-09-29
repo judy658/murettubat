@@ -37,6 +37,10 @@ const COLOR_COUNT = 10;      // js/core.js içindeki COLORS uzunluğu
 const MAX_ROOM_AGE_MS = 1000 * 60 * 60 * 2; // boş oda temizliği
 
 const SPAWN = { x: 190, y: 150 };
+/* Dünya sınırları — js/world.js içindeki WORLD ile AYNI olmalı. Sunucu
+   konumu doğrulamazsa istemci harita dışına "ışınlanıp" sunucudaki menzil
+   kontrollerini (kill, rapor, acil durum) delebilir. */
+const WORLD = { w: 1000, h: 700 };
 const SPAWN_OFFSETS = [[-60, -40], [0, -50], [60, -40], [-60, 40], [0, 50], [60, 40], [-30, 0], [30, 10]];
 const CODE_ALPHABET = 'ABCDEFGHJKMNPRSTYZ23456789';
 
@@ -144,6 +148,14 @@ function clampInt(v, lo, hi) {
   v = parseInt(v, 10);
   if (!Number.isFinite(v)) return 0;
   return Math.max(lo, Math.min(hi, v));
+}
+
+/* Konum kırpma: değer sayı değilse ekseni DEĞİŞTİRME — yarım kalmış bir
+   mesaj oyuncuyu origin'e ışınlamasın; sayıysa harita sınırlarına kırp. */
+function clampPos(v, hi, cur) {
+  v = Number(v);
+  if (!Number.isFinite(v)) return cur;
+  return Math.max(0, Math.min(hi, v));
 }
 
 /* Oda içinde kullanılmamış bir renk seç. İstediği renk boşsa onu ver,
@@ -555,8 +567,18 @@ function resolveMeeting(room) {
   const role = victim ? room.roles.get(best) : null;
   m.ejectedId = victim ? victim.id : null;
 
-  // Dışarı atılan sahtekârsa mürettebat kazanır
-  if (victim && role === 'impostor') m.winner = 'crew';
+  /* Atılma SONRASI dengeyi kurban henüz ölmeden hesapla: atılan son
+     sahtekârsa mürettebat, sahtekârlar çoğunluğa ulaştıysa sahtekârlar
+     kazanır. Kurbanı canlı saymaya devam edersek 2 sahtekârlı oyunda
+     BİR sahtekâr atılınca oyun erkenden biter. */
+  if (victim) {
+    const alive = [...room.players.values()]
+      .filter(q => !q.dead && !q.gone && q.id !== victim.id);
+    const imp = alive.filter(q => room.roles.get(q.id) === 'impostor').length;
+    const crew = alive.filter(q => room.roles.get(q.id) === 'crew').length;
+    if (imp === 0) m.winner = 'crew';
+    else if (imp >= crew) m.winner = 'imp';
+  }
 
   const detail = [...room.players.values()].map(p => ({
     id: p.id, n: p.name, ci: p.ci, dead: p.dead,
@@ -697,8 +719,8 @@ wss.on('connection', ws => {
 
       case 'p': {
         if (room.phase !== 'game' || p.dead || p.gone) break;
-        p.x = Number(msg.x) || 0;
-        p.y = Number(msg.y) || 0;
+        p.x = clampPos(msg.x, WORLD.w, p.x);
+        p.y = clampPos(msg.y, WORLD.h, p.y);
         p.dir = msg.d === -1 ? -1 : 1;
         p.moving = !!msg.m;
         p.angle = Number.isFinite(msg.a) ? msg.a : 0;

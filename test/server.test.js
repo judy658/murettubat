@@ -5,13 +5,14 @@
      npm test                       (bu test)                     */
 const WebSocket = require('ws');
 
-const URL = 'ws://localhost:3000/ws';
+const GAME_PORT = process.env.PORT || 3000;
+const URL = 'ws://localhost:' + GAME_PORT + '/ws';
 const log = [];
 const ok = (n, v) => log.push((v ? 'GECTI  ' : 'KALDI  ') + n);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* Sunucu ayakta mı? Değilse anlaşılır mesle verip çık. */
-fetch('http://localhost:3000/health').catch(() => {
+fetch('http://localhost:' + GAME_PORT + '/health').catch(() => {
   console.error('Sunucu ayakta degil. Once "npm start" calistir, sonra bu testi tekrar et.');
   process.exit(2);
 });
@@ -154,9 +155,9 @@ const open = b => b.ws.readyState === 1
   /* 13) host ayrılırsa yeni host atanmalı */
   A.ws.close();
   await sleep(600);
-  const health = await fetch('http://localhost:3000/health').then(r => r.text());
+  const health = await fetch('http://localhost:' + GAME_PORT + '/health').then(r => r.text());
   ok('bağlantı koptuktan sonra sunucu ayakta', health === 'ok');
-  const { rooms, players } = await fetch('http://localhost:3000/rooms').then(r => r.json());
+  const { rooms, players } = await fetch('http://localhost:' + GAME_PORT + '/rooms').then(r => r.json());
   log.push('BILGI  son durum: ' + JSON.stringify({ rooms, players }));
 
   /* 14) RENK ÇAKIŞMASI: herkes aynı rengi isteyince sunucu benzersiz dağıtmalı.
@@ -194,12 +195,26 @@ const open = b => b.ws.readyState === 1
   const selfId = c1.you;
   const y0 = (go1.p[selfId] || {}).y;
   c1.st = {}; c2.st = {};
+  const stFrom = c2.msgs.length;
   send(c1, { t: 'p', x: 500, y: y0, d: 1, m: 1, a: 0 });
   await sleep(400);
-  const dSelf = (c2.st[selfId] || {});
-  ok('yatay hareket delta\'sı konumu taşıdı', dSelf.x === 500);
+  ok('yatay hareket delta\'sı konumu taşıdı', (c2.st[selfId] || {}).x === 500);
+  /* Delta mesajlarını keyframe'den AYIR: 2 sn'de bir gelen keyframe TAM
+     durum yollar (y dahil), bu yüzden birleşik st'ye bakmak testi
+     aralıklı bozuyordu. Delta tek konuyu taşır, keyframe tüm oyuncuları. */
+  const deltas = c2.msgs.slice(stFrom)
+    .filter(m => m.t === 'st' && Object.keys(m.p).length === 1 && m.p[selfId]);
   ok('yatay hareket delta\'sı yalnızca değişen alanı içeriyor',
-    dSelf.y === undefined && dSelf.x !== undefined);
+    deltas.length > 0 &&
+    deltas.every(m => m.p[selfId].x !== undefined && m.p[selfId].y === undefined));
+
+  /* 17) KONUM SINIRI: harita dışı koordinat sunucuda kırpılmalı, yoksa
+         istemci harita dışına "ışınlanıp" menzil kontrollerini deler. */
+  send(c1, { t: 'p', x: 99999, y: -5000, d: 1, m: 0, a: 0 });
+  await sleep(400);
+  const cl = c2.st[selfId] || {};
+  ok('harita dışı x kırpıldı (0..1000)', cl.x >= 0 && cl.x <= 1000);
+  ok('harita dışı y kırpıldı (0..700)', cl.y >= 0 && cl.y <= 700);
 
   [c1, c2, c3].forEach(x => { try { x.ws.terminate(); } catch (e) {} });
 

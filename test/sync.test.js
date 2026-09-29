@@ -6,7 +6,8 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const SITE = 'http://localhost:3000/Among3.html';
+const GAME_PORT = process.env.PORT || 3000;
+const SITE = 'http://localhost:' + GAME_PORT + '/Among3.html';
 const PORT = 9335;
 const N = 5;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -64,7 +65,7 @@ const SPOTS = [
 ];
 
 (async () => {
-  try { await fetch('http://localhost:3000/health'); }
+  try { await fetch('http://localhost:' + GAME_PORT + '/health'); }
   catch (e) { console.error('Sunucu ayakta degil. Once "npm start" calistir.'); process.exit(2); }
 
   const edge = spawn(EDGE, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
