@@ -602,6 +602,11 @@ function finalizeMeeting(room) {
   // Oyun sürüyor: herkes kantinden devam eder.
   room.phase = 'game';
   room.sent.clear();
+  /* Toplantı, KILL COOLDOWN'unu sıfırlar (Among Us davranışı): istemci
+     'resume' ile killCooldown=0 yapıyor, sunucu da 'killAt'ı temizlemeli.
+     Aksi halde sunucu eski cooldown'u tutar, buton hazır görünür ama
+     kill sessizce reddedilir. */
+  room.killAt.clear();
   resetPositions(room);
   const full = fullState(room);
   room.players.forEach(p => {

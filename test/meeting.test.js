@@ -313,6 +313,22 @@ async function makeBody(room, victim) {
   ok('skip sonrası raporlanan ceset kayboldu (r=1, v=1)',
     !!(res3 && res3.p[victim3.you].r === 1 && res3.p[victim3.you].v === 1));
   ok('skip sonrası oyun devam ediyor', !r3.imp.end);
+
+  /* REGRESYON: TOPLANTI KILL COOLDOWN'UNU SIFIRLAMALI.
+     Burada sahtekâr az önce victim3'ü öldürdüğü için eski cooldown (25 sn)
+     hâlâ doluydu. finalizeMeeting killAt'ı temizlemezse sunucu bu kill'i
+     sessizce reddeder; istemci ise 'resume'da killCooldown=0 yapıp butonu
+     hazır gösterdiği için oyuncu "cooldown azalmıyor, kill alamıyorum"
+     sanar. Toplantıdan hemen sonra kill KABP EDİLMELİ. */
+  const kCountBefore = count(r3.imp, 'killed');
+  send(r3.imp, { t: 'p', x: SPAWN.x, y: SPAWN.y });
+  send(r3.crew[1], { t: 'p', x: SPAWN.x + 20, y: SPAWN.y });
+  await sleep(350);
+  send(r3.imp, { t: 'kill', target: r3.crew[1].you });
+  await sleep(400);
+  ok('toplantıdan sonra sahtekâr hemen kill yapabiliyor (cooldown sıfırlandı)',
+    count(r3.imp, 'killed') === kCountBefore + 1,
+    'killed=' + count(r3.imp, 'killed') + ' (once=' + kCountBefore + ')');
   r3.all.forEach(kill);
 
   /* ================================================================
