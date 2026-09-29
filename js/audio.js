@@ -13,6 +13,8 @@ const sfx={
   crew:()=>[523,659,784].forEach((f,i)=>tone(f,.22,'triangle',.09,i*.12)),
   imp:()=>{tone(150,.5,'sawtooth',.11);tone(110,.6,'sawtooth',.09,.12)},
   kill:()=>{tone(180,.15,'sawtooth',.15);tone(120,.2,'sawtooth',.12,.08);tone(80,.3,'sawtooth',.1,.15)},
+  /* Silah sesi: kısa, kuru ve üstüne güçlü — vuruş animasyonunun başında */
+  gun:()=>{tone(1200,.045,'square',.1);tone(320,.08,'sawtooth',.09,.03);tone(90,.11,'square',.07,.06)},
   death:()=>{tone(200,.3,'sawtooth',.12);tone(150,.4,'sawtooth',.1,.1);tone(100,.5,'sawtooth',.08,.2)},
   win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,'triangle',.1,i*.15)),
   lose:()=>[400,350,300,250].forEach((f,i)=>tone(f,.4,'sawtooth',.1,i*.2)),

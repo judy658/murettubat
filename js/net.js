@@ -148,6 +148,7 @@ function serverMsg(d){
 
     case 'killed':{
       const v=players.get(d.victim);
+      const kp=d.killer?players.get(d.killer):null;
       if(v){
         v.dead=true;
         /* Ceset KESİLDİĞİ yerde dursun. Sunucu kurbanın öldüğü konumu
@@ -156,7 +157,12 @@ function serverMsg(d){
         if(Number.isFinite(d.x)&&Number.isFinite(d.y)){v.tx=d.x;v.ty=d.y}
         v.x=v.tx;v.y=v.ty;
       }
-      if(d.victim===myId)showDeathScreen();
+      /* Vuruş animasyonu: sunucu katilin kim olduğunu da gönderiyor, bu
+         yüzden mermi doğru yerden çıkıyor. Ceset ancak animasyon
+         bitince çizilir; kurbanın kendi ölüm ekranı da ondan sonra gelir. */
+      const fxOk=v&&startDeathFx(d.killer,d.victim,
+        kp?kp.x:v.x,kp?kp.y:v.y,v.x,v.y);
+      if(d.victim===myId&&!fxOk)showDeathScreen();
       if(v)sysChat(v.name+' öldürüldü!');
       sfx.kill();
       break;
@@ -242,6 +248,7 @@ function applyState(map){
 function leaveAll(){
   leaving=true;closeSocket();
   players.clear();roles.clear();started=false;LB=null;gameOver=false;roomCode=null;
+  clearDeathFx();
   S.phase='menu';S.mode=null;controls=false;
   closeMeeting();closeEject();
   $('#lbMsgs').innerHTML='';$('#gMsgs').innerHTML='';$('#mtMsgs').innerHTML='';

@@ -25,6 +25,7 @@ function drawMenuFloaters(g,w,h){
 function update(dt){
   floaters.forEach(f=>{f.x+=f.vx*dt;f.y+=f.vy*dt;
     if(f.x<-.06)f.x=1.06;if(f.x>1.06)f.x=-.06;if(f.y<-.08)f.y=1.08;if(f.y>1.08)f.y=-.08;f.dir=f.vx>=0?1:-1;});
+  updateDeathFx();
   if(S.phase!=='game')return;
   /* KILL GERİ SAYIMI. Sayaç 'resume'/'soloAfterEject' ile DIŞARIDAN 0'a
      çekilebildiği için yalnızca `killCooldown>0` ikine bakmak yanlış: o
@@ -137,14 +138,19 @@ function render(){
   for(const p of list){
     if(p.gone)continue;          // uzaya atılan sahnede yok
     if(!canSee(me,p))continue;
-    drawBean(gx,p.x,p.y,1,p.ci,p.dir,p.moving,T+(p.bob||0),p.dead);
-    if(!p.dead){
+    /* Vurulma anı: kurban hâlâ AYAKTA ve kırmızıya dönüyor. Animasyon
+       bitince normal ceset çizimi (drawBean dead) devreye girer. */
+    const dfx=deathFxFor(p.id);
+    if(dfx)drawDeathVictim(gx,p,dfx);
+    else drawBean(gx,p.x,p.y,1,p.ci,p.dir,p.moving,T+(p.bob||0),p.dead);
+    if(!p.dead||dfx){
       gx.font='800 12px Nunito';gx.textAlign='center';
       const nm=(p.id===myId?'★ ':'')+p.name;
       gx.lineWidth=3;gx.strokeStyle='#0a1120';gx.strokeText(nm,p.x,p.y-46);
       gx.fillStyle=(meImp&&impNames.has(p.id))?'#ff8b95':'#fff';
       gx.fillText(nm,p.x,p.y-46);}
   }
+  drawDeathFx(gx);
   gx.restore();
   if(me&&!me.dead)drawFog(gx,me,w,h);
   const killBtn=$('#killBtn');

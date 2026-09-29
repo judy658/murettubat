@@ -241,6 +241,19 @@ class Tab {
   await IMP.js(`tryKill()`);
   await CREW.until('ME().dead===true', 15000, 'kurban oldurulmedi');
   ok('kill sonucu kurban tarafında işledi', (await CREW.js(`ME().dead`)) === true, 'once=' + impBefore);
+  /* ÖLÜM ANİMASYONU: iki tarafta da mermi görünmeli, kurbanın ölüm
+     ekranı animasyon bitince açılmalı (eskiden anında açılıyordu). */
+  ok('sahtekârda vuruş animasyonu başladı', (await IMP.js(`deathFx.length>0`)) === true);
+  ok('kurbanda vuruş animasyonu başladı', (await CREW.js(`deathFx.length>0`)) === true);
+  const fxVictim = await IMP.js(`deathFx[0]&&deathFx[0].v`);
+  ok('animasyon doğru kurbanı hedefliyor', fxVictim === (await CREW.js(`myId`)), 'v=' + fxVictim);
+  const fxKiller = await IMP.js(`deathFx[0]&&deathFx[0].k`);
+  ok('animasyon doğru katili kaydediyor', fxKiller === (await IMP.js(`myId`)), 'k=' + fxKiller);
+  ok('ölüm ekranı animasyon bitmeden açılmadı',
+    (await CREW.js(`document.querySelector('#deathScreen').classList.contains('on')`)) === false);
+  await CREW.until('deathFx.length===0', 5000, 'kurbanda animasyon bitmedi');
+  ok('animasyon sonunda ceset normal çizime döndü', (await CREW.js(`deathFxFor(myId)===null`)) === true);
+  await CREW.until(`document.querySelector('#deathScreen').classList.contains('on')`, 5000, 'kurban ölüm ekranını görmedi');
   ok('kurban ölüm ekranını gördü', (await CREW.js(`document.querySelector('#deathScreen').classList.contains('on')`)) === true);
   ok('sahtekâr cooldown aldı', (await IMP.js(`killCooldown>0`)) === true);
 
@@ -289,6 +302,18 @@ class Tab {
   await mImp.until('!!findKillTarget()', 8000, 'sagtekar menzilde hedef bulamadi');
   await sleep(400);
   await mImp.js(`tryKill()`);
+  /* ÖLÜM ANİMASYONU: sahtekâr kurbanın 15px yanında (REPORT_RANGE=70), yani
+     bu odada kill oyunu bitirmez ve rapor edilebilirlik anlamlı şekilde
+     sınanır: vurulma anında YOK, animasyon bitince VAR olmalı. */
+  await mImp.until('deathFx.length>0', 5000, 'sagtekar sekmesinde animasyon baslamadi');
+  ok('vurulma aninda kurban raporlanabilir degil', (await mImp.js(`!findReportTarget()`)) === true);
+  /* findKillTarget() en yakını seçtiği için kurban her zaman tgtId değildir;
+     animasyonun KENDİ kaydettiği kurbanı doğruluyoruz. */
+  const mFxV = await mImp.js(`deathFx[0].v`);
+  ok('vurulma aninda kurban hala ayakta ciziliyor',
+    (await mImp.js(`!!(deathFxFor(${JSON.stringify(mFxV)}) && players.get(${JSON.stringify(mFxV)}).dead)`)) === true, 'v=' + mFxV);
+  await mImp.until('deathFx.length===0', 5000, 'sagtekar sekmesinde animasyon bitmedi');
+  ok('animasyon bitince kurban raporlanabilir', (await mImp.js(`!!findReportTarget()`)) === true);
 
   let VICTIM = null;
   for (let i = 0; i < 80 && !VICTIM; i++) {
@@ -496,14 +521,37 @@ class Tab {
         yazısıyla (örn. "18s") donup kalıyordu. */
   await S.js(`startSolo()`);
   await S.until('S.mode==="solo" && S.phase==="game" && !gameOver && !meeting', 15000, '3. solo baslamadi');
-  await S.js(`roles.set(myId,'impostor')`);
-  await S.js(`(()=>{const b=[...players.values()].find(p=>p.bot&&!p.dead);const m=ME();b.x=b.tx=m.x+25;b.y=b.ty=m.y;})()`);
+  /* Rolleri TAMAMEN sabitle: yalnız bana sahtekâr yazmak, assignRoles
+     zaten bir bota sahtekâr vermişse iki sahtekâr olur ve kill oyunu
+     bitirir (go:true) — ceset raporlanamaz, test kararsızlaşır. */
+  await S.js(`(()=>{roles.clear();roles.set(myId,'impostor');[...players.values()].forEach(p=>{if(p.id!==myId)roles.set(p.id,'crew')})})()`);
+  /* Botu yanımıza sabitle: bot durduğunda updateBot hedef seçip YÜRÜMEYE
+     başlıyor, ölünce de p.x=p.tx ile hedefe snap olduğu için ceset
+     uzaklaşıyor ve rapor testi kararsızlaşıyor. */
+  await S.js(`(()=>{const b=[...players.values()].find(p=>p.bot&&!p.dead);const m=ME();b.x=b.tx=m.x+25;b.y=b.ty=m.y;b.wait=60;b.moving=false;})()`);
   await S.until('!!findKillTarget()', 8000, 'kill hedefi yok');
   await S.js(`tryKill()`);
-  await S.until('killCooldown>0', 8000, 'kill cooldown baslamadi');
+  /* Cooldown kontrolü RENDER karesinde güncelleniyor; killCooldown>0
+     koşulu tek başına yarış yaratıyor (ilk kare henüz geçmemiş olabilir). */
+  await S.until('killCooldown>0 && /cooldown/.test(document.querySelector("#killBtn").className)', 8000, 'kill cooldown baslamadi');
   ok('kill sonrasi butonda cooldown var',
     (await S.js(`/cooldown/.test(document.querySelector('#killBtn').className) && /s$/.test(document.querySelector('#killBtn .cd').textContent)`)) === true,
     await S.js(`document.querySelector('#killBtn .cd').textContent`));
+  /* SOLO ölüm animasyonu: solo kill yolu da animasyon başlatmalı,
+        kurbanı doğru kaydetmeli ve animasyon bitince ceset yine de
+        RAPORLANABİLİR olmalı. */
+  ok('solo kill animasyonu basladi', (await S.js(`deathFx.length>0`)) === true);
+  ok('solo animasyonu beni katil olarak kaydetti', (await S.js(`deathFx[0].k===myId`)) === true);
+  const soloVictim = await S.js(`deathFx[0].v`);
+  ok('solo animasyonu kurbani hedefliyor',
+    soloVictim === (await S.js(`[...players.values()].find(p=>p.dead&&!p.gone).id`)), 'v=' + soloVictim);
+  ok('solo animasyon sirasinda kurban raporlanabilir degil', (await S.js(`!findReportTarget()`)) === true);
+  await S.until('deathFx.length===0', 5000, 'solo animasyonu bitmedi');
+  ok('solo animasyon bitti', (await S.js(`deathFx.length===0`)) === true);
+  ok('solo animasyon sonrasi ceset raporlanabilir', (await S.js(`!!findReportTarget()`)) === true,
+    await S.js(`JSON.stringify({fx:deathFx.length,go:gameOver,ej:ejecting,mt:!!meeting,meDead:ME().dead,
+      deads:[...players.values()].filter(p=>p.dead&&!p.gone&&!p.reported).map(p=>({id:p.id,
+      d:Math.round(Math.hypot(p.x-ME().x,p.y-ME().y)),fx:!!deathFxFor(p.id)}))})`));
   await S.js(`(()=>{const c=[...players.values()].find(p=>p.id!==myId&&p.dead);const m=ME();m.x=c.x+10;m.y=c.y+10;})()`);
   await S.until('/ready/.test(document.querySelector("#reportBtn").className)', 15000, 'rapor butonu hazir degil');
   await S.js(`tryReport()`);
@@ -519,6 +567,10 @@ class Tab {
   ok('toplanti sonrasi geri sayim yazisi temizlendi',
     (await S.js(`document.querySelector('#killBtn .cd').textContent`)) === '',
     'txt="' + await S.js(`document.querySelector('#killBtn .cd').textContent`) + '"');
+  /* 14) Ölüm animasyonu çizim katmanı: fonksiyonlar mevcut olmalı ve
+        animasyon boyunca (her karede) hata vermemeli. */
+  ok('olum animasyonu cizim fonksiyonlari mevcut',
+    (await S.js(`typeof startDeathFx==='function'&&typeof drawDeathFx==='function'&&typeof drawDeathVictim==='function'&&typeof updateDeathFx==='function'`)) === true);
 
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));

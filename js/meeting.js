@@ -34,7 +34,9 @@ function findReportTarget(){
   if(!me||me.dead||gameOver||meeting||ejecting)return null;
   let best=null,min=Infinity;
   players.forEach(p=>{
-    if(p.id===myId||!p.dead||p.reported||p.gone)return;
+    /* Vurulma anındaki kurban henüz raporlanabilir değil: ceset ancak
+       ölüm animasyonu bitince görünür hâle gelir. */
+    if(p.id===myId||!p.dead||p.reported||p.gone||deathFxFor(p.id))return;
     const d=Math.hypot(p.x-me.x,p.y-me.y);
     if(d<REPORT_RANGE&&d<min){min=d;best=p}
   });

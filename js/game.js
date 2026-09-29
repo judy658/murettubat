@@ -19,6 +19,7 @@ function assignRoles(){
 function startSolo(){
   S.mode='solo';myId='me';started=true;S.phase='game';players.clear();roles.clear();gameOver=false;killCooldown=0;
   closeMeeting();closeEject();
+  clearDeathFx();           // önceki oyundan kalan ölüm animasyonu temizlensin
   soloClearTimers();           // önceki solo oyununun bekleyen oy zamanlayıcıları temizlensin
   emergUsed=false;             // yeni oyunda acil durum hakkı geri gelir
   players.set('me',{id:'me',name:sanitize(prefs.name),ci:prefs.ci,x:SPAWN.x,y:SPAWN.y,tx:SPAWN.x,ty:SPAWN.y,dir:1,angle:0,moving:false,ready:true,bot:false,dead:false,reported:false,gone:false});
@@ -85,6 +86,8 @@ function tryKill(){
   if(S.mode==='solo'){
     // Solo modda sunucu yok, istemci kendi otoritesidir.
     closest.dead=true;
+    // Vuruş animasyonu (ceset ancak animasyon bitince çizilir).
+    startDeathFx(myId,closest.id,me.x,me.y,closest.x,closest.y);
     sysChat(closest.name+' öldürüldü!');
     sfx.kill();
     killCooldown=KILL_COOLDOWN;
