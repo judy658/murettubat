@@ -32,6 +32,7 @@ function startSolo(){
 }
 function enterGame(){
   show('scr-game');$('#gMsgs').innerHTML='';controls=false;lastRoom=null;
+  deathZoom=1;view.sc=view.base;   // önceki ölüm animasyonundan kalan yakınlaştırma temizlensin
   emergUsed=false;              // yeni oyunda acil durum hakkı geri gelir
   if(!mapReady)buildMap();
   requestAnimationFrame(()=>{resize();if(!mapReady)buildMap();});

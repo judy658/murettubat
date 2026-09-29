@@ -76,6 +76,16 @@ function update(dt){
     if(dx*dx+dy*dy>20736){p.x=p.tx;p.y=p.ty}
     else{p.x+=dx*Math.min(1,dt*18);p.y+=dy*Math.min(1,dt*18);}});
   if(me){cam.x=lerp(cam.x,me.x,Math.min(1,dt*6));cam.y=lerp(cam.y,me.y,Math.min(1,dt*6));}
+  /* ÖLÜM ANİMASYONU — kurbanın kendi ekranı. Kameraya hızla yakınlaşılır:
+     aksi halde vuruş, ekranın ortasında 40px'lik bir noktada kalıyor ve
+     ölen kişi "hiçbir şey olmadı" diye geçiyor. Ölçek, kamera clamp'i
+     hesaplanmadan ÖNCE ayarlanır; kamera zaten kurbanın üstüne
+     lerp'lendiği için kurbana odaklanır. */
+  const myFx=deathFxFor(myId);
+  const zWant=myFx?2.3:1;
+  deathZoom+=(zWant-deathZoom)*Math.min(1,dt*11);
+  if(Math.abs(deathZoom-zWant)<.005)deathZoom=zWant;
+  view.sc=view.base*deathZoom;
   const hw=vw/2/view.sc,hh=vh/2/view.sc,minX=-PAD,maxX=WORLD.w+PAD,minY=-PAD,maxY=WORLD.h+PAD;
   cam.x=(maxX-minX)<=hw*2?(minX+maxX)/2:clamp(cam.x,minX+hw,maxX-hw);
   cam.y=(maxY-minY)<=hh*2?(minY+maxY)/2:clamp(cam.y,minY+hh,maxY-hh);
@@ -174,8 +184,8 @@ function render(){
 
 function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);
   [bgCv,gameCv].forEach(c=>{c.width=vw*dpr;c.height=vh*dpr});
-  view.sc=clamp(Math.min(vw/(WORLD.w+PAD*2),vh/(WORLD.h+PAD*2)),.55,1.2);
-  fogW=0;fogH=0;}
+  view.base=clamp(Math.min(vw/(WORLD.w+PAD*2),vh/(WORLD.h+PAD*2)),.55,1.2);
+  view.sc=view.base;fogW=0;fogH=0;}
 addEventListener('resize',resize);
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;T=now/1000;

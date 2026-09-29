@@ -245,6 +245,15 @@ class Tab {
      ekranı animasyon bitince açılmalı (eskiden anında açılıyordu). */
   ok('sahtekârda vuruş animasyonu başladı', (await IMP.js(`deathFx.length>0`)) === true);
   ok('kurbanda vuruş animasyonu başladı', (await CREW.js(`deathFx.length>0`)) === true);
+  /* Kurbanın kendi ekranında kamera kurbana odaklanıp YAKINLAŞMALI. Aksi
+     halde vuruş, ekran ortasında 40px'lik bir noktada kalıp "hiçbir şey
+     olmadı" gibi geçiyor. Sahtekârın kamerası ise yerinde kalmalı. */
+  await CREW.until('deathFx.length>0 && deathZoom>1.5', 5000, 'kurban kamerasi yakinlasmadi');
+  ok('kurbanin kamerasi olum animasyonunda yakinlasti',
+    (await CREW.js(`deathZoom>1.5 && view.sc>view.base*1.5`)) === true,
+    'dz=' + await CREW.js(`deathZoom.toFixed(2)`) + ' sc=' + await CREW.js(`view.sc.toFixed(2)`) + ' base=' + await CREW.js(`view.base.toFixed(2)`));
+  ok('sagtekarin kamerasi yakinlasmiyor', (await IMP.js(`deathZoom===1`)) === true,
+    'dz=' + await IMP.js(`deathZoom.toFixed(2)`));
   const fxVictim = await IMP.js(`deathFx[0]&&deathFx[0].v`);
   ok('animasyon doğru kurbanı hedefliyor', fxVictim === (await CREW.js(`myId`)), 'v=' + fxVictim);
   const fxKiller = await IMP.js(`deathFx[0]&&deathFx[0].k`);
@@ -253,6 +262,10 @@ class Tab {
     (await CREW.js(`document.querySelector('#deathScreen').classList.contains('on')`)) === false);
   await CREW.until('deathFx.length===0', 5000, 'kurbanda animasyon bitmedi');
   ok('animasyon sonunda ceset normal çizime döndü', (await CREW.js(`deathFxFor(myId)===null`)) === true);
+  await CREW.until('deathZoom<1.02', 5000, 'kurban kamerasi geri donmedi');
+  ok('animasyon sonrasi kamera normale dondu',
+    (await CREW.js(`Math.abs(deathZoom-1)<0.02 && Math.abs(view.sc-view.base)<0.02`)) === true,
+    'dz=' + await CREW.js(`deathZoom.toFixed(2)`));
   await CREW.until(`document.querySelector('#deathScreen').classList.contains('on')`, 5000, 'kurban ölüm ekranını görmedi');
   ok('kurban ölüm ekranını gördü', (await CREW.js(`document.querySelector('#deathScreen').classList.contains('on')`)) === true);
   ok('sahtekâr cooldown aldı', (await IMP.js(`killCooldown>0`)) === true);
