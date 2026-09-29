@@ -490,6 +490,36 @@ class Tab {
     meg.skip.length > 0 && /\uD83D\uDCE2/.test(meg.skip), 'skip="' + meg.skip + '" kod=' + meg.skip.codePointAt(0));
   ok('gercek atis ciziminde emoji YOK (astronot cizildi)', meg.real === '', 'real="' + meg.real + '"');
 
+  /* 13) KILL GERİ SAYIMI toplantıdan sonra temizlenmeli. Sayaç yalnızca
+        `killCooldown>0` iken güncellendiği için, resume/soloAfterEject
+        cooldown'u dışarıdan 0'a çekince buton "cooldown" sınıfı ve eski
+        yazısıyla (örn. "18s") donup kalıyordu. */
+  await S.js(`startSolo()`);
+  await S.until('S.mode==="solo" && S.phase==="game" && !gameOver && !meeting', 15000, '3. solo baslamadi');
+  await S.js(`roles.set(myId,'impostor')`);
+  await S.js(`(()=>{const b=[...players.values()].find(p=>p.bot&&!p.dead);const m=ME();b.x=b.tx=m.x+25;b.y=b.ty=m.y;})()`);
+  await S.until('!!findKillTarget()', 8000, 'kill hedefi yok');
+  await S.js(`tryKill()`);
+  await S.until('killCooldown>0', 8000, 'kill cooldown baslamadi');
+  ok('kill sonrasi butonda cooldown var',
+    (await S.js(`/cooldown/.test(document.querySelector('#killBtn').className) && /s$/.test(document.querySelector('#killBtn .cd').textContent)`)) === true,
+    await S.js(`document.querySelector('#killBtn .cd').textContent`));
+  await S.js(`(()=>{const c=[...players.values()].find(p=>p.id!==myId&&p.dead);const m=ME();m.x=c.x+10;m.y=c.y+10;})()`);
+  await S.until('/ready/.test(document.querySelector("#reportBtn").className)', 15000, 'rapor butonu hazir degil');
+  await S.js(`tryReport()`);
+  await S.until('!!meeting', 10000, 'toplanti acmadi');
+  await S.js(`castVote('skip')`);
+  await S.until('ejecting===true', 30000, 'botlar oy vermedi');
+  await S.until('!ejecting && !meeting && killCooldown===0', 40000, 'toplati bitmedi');
+  await sleep(500);
+  ok('toplanti sonrasi kill cooldown 0', (await S.js(`killCooldown`)) === 0);
+  ok('toplanti sonrasi buton cooldown class silindi',
+    (await S.js(`/cooldown/.test(document.querySelector('#killBtn').className)`)) === false,
+    'cls=' + await S.js(`document.querySelector('#killBtn').className`));
+  ok('toplanti sonrasi geri sayim yazisi temizlendi',
+    (await S.js(`document.querySelector('#killBtn .cd').textContent`)) === '',
+    'txt="' + await S.js(`document.querySelector('#killBtn .cd').textContent`) + '"');
+
   console.log(log.join('\n'));
   const failed = log.filter(l => l.startsWith('KALDI'));
   const skipped = log.filter(l => l.startsWith('ATLANDI'));

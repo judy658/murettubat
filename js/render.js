@@ -26,11 +26,18 @@ function update(dt){
   floaters.forEach(f=>{f.x+=f.vx*dt;f.y+=f.vy*dt;
     if(f.x<-.06)f.x=1.06;if(f.x>1.06)f.x=-.06;if(f.y<-.08)f.y=1.08;if(f.y>1.08)f.y=-.08;f.dir=f.vx>=0?1:-1;});
   if(S.phase!=='game')return;
+  /* KILL GERİ SAYIMI. Sayaç 'resume'/'soloAfterEject' ile DIŞARIDAN 0'a
+     çekilebildiği için yalnızca `killCooldown>0` ikine bakmak yanlış: o
+     durumda blok hiç çalışmaz, buton donmuş "18s" yazısıyla kalır.
+     Bu yüzden her karede sıfıra da inildiği kontrol edilir. */
+  killCooldown=Math.max(0,killCooldown-dt);
+  const killBtn=$('#killBtn');
   if(killCooldown>0){
-    killCooldown=Math.max(0,killCooldown-dt);
-    const btn=$('#killBtn');
-    if(killCooldown>0){btn.classList.add('cooldown');btn.querySelector('.cd').textContent=Math.ceil(killCooldown)+'s';}
-    else{btn.classList.remove('cooldown');btn.querySelector('.cd').textContent='';}
+    killBtn.classList.add('cooldown');
+    killBtn.querySelector('.cd').textContent=Math.ceil(killCooldown)+'s';
+  }else{
+    killBtn.classList.remove('cooldown');
+    killBtn.querySelector('.cd').textContent='';
   }
   const me=ME();
   if(me&&controls&&!me.dead){
