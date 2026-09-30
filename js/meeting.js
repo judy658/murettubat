@@ -4,7 +4,7 @@
 
 const REPORT_RANGE=70;   // server/index.js ile aynı değer
 const EMERG_RANGE=60;    // acil durum butonu menzili — server ile aynı
-const EMERG_BTN={x:190,y:150}; // kantin masası ortası
+const EMERG_BTN={x:858,y:198}; // kafeterya masası ortası (Skeld)
 let emergUsed=false;     // oyun başına 1 acil durum hakkı (her oyunda reset)
 
 /* Acil durum butonu hazır mı? Masaya yakın, hayatta ve hakkı duruyor. */

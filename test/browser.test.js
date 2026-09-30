@@ -187,8 +187,8 @@ class Tab {
   ok('konum delta sunucudan geldi', Math.abs(posSeen.x - 300) < 90, 'x=' + posSeen.x + ' y=' + posSeen.y);
 
   /* 5b) GÖRÜŞ: duvar arkasındaki oyuncu görülmemeli (menzil+açı izin verse bile) */
-  await A.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=240;})()`);   // KANTİN
-  await B.js(`(()=>{const me=ME();me.x=me.tx=390;me.y=me.ty=280;})()`);   // GÜVENLİK (duvar arkası)
+  await A.js(`(()=>{const me=ME();me.x=me.tx=455;me.y=me.ty=403;})()`);   // GÜVENLİK
+  await B.js(`(()=>{const me=ME();me.x=me.tx=587;me.y=me.ty=338;})()`);   // REVİR (duvar arkası)
   await sleep(1400);
   const losR = await A.js(`(()=>{
     const me=ME(),o=[...players.values()].find(p=>p.id!==myId);
@@ -198,11 +198,12 @@ class Tab {
     return isInView(me,o)===false ? 'engelli' : 'gorunur';
   })()`);
   ok('duvar arkasindaki oyuncu gorunmuyor', losR === 'engelli', 'durum=' + losR);
-  await B.js(`(()=>{const me=ME();me.x=me.tx=330;me.y=me.ty=240;})()`);   // A'nın tam önü (konide)
+  await A.js(`(()=>{const me=ME();me.x=me.tx=858;me.y=me.ty=198;me.angle=0;})()`);   // KAFETERYA
+  await B.js(`(()=>{const me=ME();me.x=me.tx=968;me.y=me.ty=198;})()`);   // A'nın tam önü (konide)
   await sleep(1400);
   const losR2 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===true})()`);
   ok('konideki oyuncu gorunuyor', losR2 === true, 'durum=' + losR2);
-  await B.js(`(()=>{const me=ME();me.x=me.tx=300;me.y=me.ty=250;})()`);   // arkada → koni dışı
+  await B.js(`(()=>{const me=ME();me.x=me.tx=748;me.y=me.ty=198;})()`);   // arkada → koni dışı
   await sleep(1400);
   const losR3 = await A.js(`(()=>{const me=ME(),o=[...players.values()].find(p=>p.id!==myId);if(!o)return 'yok';return canSee(me,o)===false})()`);
   ok('arkadaki (koni disi) oyuncu gorunmuyor', losR3 === true, 'durum=' + losR3);
@@ -211,14 +212,14 @@ class Tab {
      Maske konumu dünyadan ekrana YANLIŞ ötelenirse (0.4.7 hatası)
      aydınlık/karanlık haritaya göre kayar: önümüzdeki zemin noktası
      karanlık ya da arkadaki zemin aydınlık görünür. */
-  await A.js(`(()=>{const me=ME();me.x=me.tx=190;me.y=me.ty=150;me.angle=0;})()`); // KANTİN, sağa bak
+  await A.js(`(()=>{const me=ME();me.x=me.tx=858;me.y=me.ty=198;me.angle=0;})()`); // KAFETERYA, sağa bak
   await sleep(900); // kamera player'a otursun
   const fogPx = await A.js(`(()=>{
     const dprr=dpr, sc=view.sc;
     const toPx=(wx,wy)=>[Math.round((vw/2+(wx-cam.x)*sc)*dprr),Math.round((vh/2+(wy-cam.y)*sc)*dprr)];
-    const px=toPx(300,150);            // önde, koni İÇİNDE, zeminde
+    const px=toPx(968,198);            // önde, koni İÇİNDE, zeminde
     const aAhead=fogC.getContext('2d').getImageData(px[0],px[1],1,1).data[3];
-    const pr=toPx(60,150);             // arkada, koni DIŞINDA, zeminde
+    const pr=toPx(748,198);             // arkada, koni DIŞINDA, zeminde
     const aBack=fogC.getContext('2d').getImageData(pr[0],pr[1],1,1).data[3];
     return {ahead:aAhead,back:aBack};
   })()`);
@@ -376,7 +377,7 @@ class Tab {
     await VICTIM.js(`document.querySelector('#mtSub').textContent`));
   ok('hayalet oy sayacini gormuyor', !/\d+\/\d+/.test(await VICTIM.js(`document.querySelector('#mtSub').textContent`)));
   ok('kendim kartin tıklanamaz', (await REPORTER.js(`document.querySelector('#mtGrid .mt-card.mine')!==null`)) === true);
-  ok('raporlayan kafeteryada', !!(await REPORTER.js(`(()=>{const m=ME();return m.x>=50&&m.x<=330&&m.y>=50&&m.y<=250})()`)));
+  ok('raporlayan kafeteryada', !!(await REPORTER.js(`(()=>{const m=ME();return m.x>=682&&m.x<=1035&&m.y>=75&&m.y<=323})()`)));
   /* Raporlanan ceset toplantıyla birlikte SAHNEDEN KALDIRILIR (Among Us
      gibi): "gone" işaretlenir → çizilmez. (Işınlanmama/"yerinde kalma"
      davranışı protokol testinde doğrulanıyor.) */
@@ -490,8 +491,8 @@ class Tab {
         toplantı başlığı "ACİL DURUM" olmalı (ceset yok), tekrar tıklama reddedilmeli. */
   await S.js(`startSolo()`);
   await S.until('S.mode==="solo" && S.phase==="game" && !gameOver && !meeting', 15000, '2. solo baslamadi');
-  // Oyuncuyu masa üstüne (190,150) taşı
-  await S.js(`(()=>{const m=ME();m.x=m.tx=190;m.y=m.ty=150;})()`);
+  // Oyuncuyu masa üstüne (858,198) taşı
+  await S.js(`(()=>{const m=ME();m.x=m.tx=858;m.y=m.ty=198;})()`);
   await S.until(`/ready/.test(document.querySelector('#emergBtn').className)`, 8000, 'solo acil durum butonu hazir degil');
   ok('solo acil durum butonu hazir (masa basinda)', true);
   ok('acil durum butonu gosteriliyor', (await S.js(`/show/.test(document.querySelector('#emergBtn').className)`)) === true);

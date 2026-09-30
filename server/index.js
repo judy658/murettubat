@@ -29,18 +29,18 @@ const KILL_RANGE = 60;       // kill menzili (dünya birimi)
 const KILL_COOLDOWN = 25;    // saniye
 const REPORT_RANGE = 70;     // cesedi raporlamak için gereken yakınlık
 const EMERG_RANGE = 60;      // acil durum butonuna ulaşmak için gereken yakınlık
-const EMERG_BTN = { x: 190, y: 150 }; // kantin masası ortası (SPAWN ile aynı)
+const EMERG_BTN = { x: 858, y: 198 }; // kafeterya masası ortası (Skeld, js/meeting.js ile aynı)
 const MEET_SECONDS = 90;     // toplantıda tartışma süresi
 const EJECT_MS = 11000;      // animasyon (6.4 sn) + rol açıklamasının okunması için pay
 const MAX_PLAYERS = 8;
 const COLOR_COUNT = 10;      // js/core.js içindeki COLORS uzunluğu
 const MAX_ROOM_AGE_MS = 1000 * 60 * 60 * 2; // boş oda temizliği
 
-const SPAWN = { x: 190, y: 150 };
+const SPAWN = { x: 858, y: 198 };
 /* Dünya sınırları — js/world.js içindeki WORLD ile AYNI olmalı. Sunucu
    konumu doğrulamazsa istemci harita dışına "ışınlanıp" sunucudaki menzil
    kontrollerini (kill, rapor, acil durum) delebilir. */
-const WORLD = { w: 1000, h: 700 };
+const WORLD = { w: 1521, h: 862 };
 const SPAWN_OFFSETS = [[-60, -40], [0, -50], [60, -40], [-60, 40], [0, 50], [60, 40], [-30, 0], [30, 10]];
 const CODE_ALPHABET = 'ABCDEFGHJKMNPRSTYZ23456789';
 

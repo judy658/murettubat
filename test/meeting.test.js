@@ -11,8 +11,8 @@ const WebSocket = require('ws');
 
 const GAME_PORT = process.env.PORT || 3000;
 const URL = 'ws://localhost:' + GAME_PORT + '/ws';
-const SPAWN = { x: 190, y: 150 };
-const KANTIN = { x: 50, y: 50, w: 280, h: 200 };   // server/index.js ile aynı
+const SPAWN = { x: 858, y: 198 };
+const KANTIN = { x: 682, y: 75, w: 353, h: 248 };   // server/index.js ile aynı (kafeterya)
 const EJECT_WAIT = 12500;                            // EJECT_MS (11000) + pay
 
 const log = [];
@@ -91,17 +91,17 @@ async function makeBody(room, victim) {
      yerine konumları doğrudan veriyoruz (goP pozisyonları 2 sn'de bir
      keyframe ile tazelenir, anlık okunursa sahtekâr yanlış yere gider).
      Koordinatlar harita içinde olmalı: sunucu artık harita dışını kırpıyor. */
-  send(victim1, { t: 'p', x: 900, y: 600 });
-  send(r1.imp, { t: 'p', x: 900, y: 600 });
+  send(victim1, { t: 'p', x: 803, y: 662 });
+  send(r1.imp, { t: 'p', x: 803, y: 662 });
   await sleep(300);
   send(r1.imp, { t: 'kill', target: victim1.you });
   await sleep(350);
-  const body1 = { x: 900, y: 600 };
+  const body1 = { x: 803, y: 662 };
 
   ok('ceset oluştu', count(r1.imp, 'killed') === 1);
 
   /* Menzil dışı rapor reddedilmeli (raporlayan kantinde, ceset uzakta) */
-  send(rep1, { t: 'p', x: 190, y: 150 });
+  send(rep1, { t: 'p', x: 858, y: 198 });
   await sleep(300);
   send(rep1, { t: 'report', body: victim1.you });
   await sleep(250);
@@ -342,14 +342,14 @@ async function makeBody(room, victim) {
   const callerA = rA.crew[0];
 
   /* Butondan uzakken çağırma reddedilmeli */
-  send(callerA, { t: 'p', x: 900, y: 600 });
+  send(callerA, { t: 'p', x: 803, y: 662 });
   await sleep(300);
   send(callerA, { t: 'emerg' });
   await sleep(250);
   ok('acil durum: butona uzakken reddedildi', count(rA.imp, 'meet') === 0);
 
   /* Butona yakınınca kabul edilmeli (ceset yok) */
-  send(callerA, { t: 'p', x: 190, y: 150 });
+  send(callerA, { t: 'p', x: 858, y: 198 });
   await sleep(300);
   send(callerA, { t: 'emerg' });
   await sleep(350);
@@ -379,7 +379,7 @@ async function makeBody(room, victim) {
 
   /* Aynı oyuncu ikinci kez çağıramaz (oyuncu başına 1 hak) */
   rA.imp.msgs.length = 0;
-  send(callerA, { t: 'p', x: 190, y: 150 });
+  send(callerA, { t: 'p', x: 858, y: 198 });
   await sleep(300);
   send(callerA, { t: 'emerg' });
   await sleep(300);
@@ -387,7 +387,7 @@ async function makeBody(room, victim) {
 
   /* Başka bir canlı oyuncu hâlâ çağırabilir (hak kişisel) */
   const callerA2 = rA.crew[2];
-  send(callerA2, { t: 'p', x: 190, y: 150 });
+  send(callerA2, { t: 'p', x: 858, y: 198 });
   await sleep(300);
   send(callerA2, { t: 'emerg' });
   await sleep(350);
@@ -476,7 +476,7 @@ async function makeBody(room, victim) {
   const alive7 = imps7[1];
   /* Oy olmadan atılma olmaz: masadaki butonla acil durum toplantısı çağır. */
   const caller7 = r7.all.find(b => b.role === 'crew');
-  send(caller7, { t: 'p', x: 190, y: 150 });
+  send(caller7, { t: 'p', x: 858, y: 198 });
   await sleep(300);
   send(caller7, { t: 'emerg' });
   await sleep(400);

@@ -89,7 +89,7 @@ const open = b => b.ws.readyState === 1
   ok('tek sahtekâr varsa eş listesi boş', goOf(imp).mates.length === 0);
 
   /* 5) MENZİL KURALI: uzaktan kill reddedilmeli */
-  send(imp, { t: 'p', x: 190, y: 150 });
+  send(imp, { t: 'p', x: 858, y: 198 });
   send(crew[0], { t: 'p', x: 700, y: 400 });
   send(crew[1], { t: 'p', x: 700, y: 420 });
   await sleep(250);
@@ -98,7 +98,7 @@ const open = b => b.ws.readyState === 1
   ok('menzil dışı kill reddedildi', imp.killed.length === 0);
 
   /* 6) MENZİL İÇİ kill kabul edilmeli */
-  send(crew[0], { t: 'p', x: 200, y: 150 });
+  send(crew[0], { t: 'p', x: 868, y: 198 });
   await sleep(300);
   send(imp, { t: 'kill', target: crew[0].you });
   await sleep(300);
@@ -107,7 +107,7 @@ const open = b => b.ws.readyState === 1
   ok('kill cooldown gönderildi', imp.cds.length === 1);
 
   /* 7) COOLDOWN: ikinci kill hemen reddedilmeli (1 kurban kaldı) */
-  send(crew[1], { t: 'p', x: 195, y: 150 });
+  send(crew[1], { t: 'p', x: 863, y: 198 });
   await sleep(300);
   send(imp, { t: 'kill', target: crew[1].you });
   await sleep(300);
@@ -213,8 +213,8 @@ const open = b => b.ws.readyState === 1
   send(c1, { t: 'p', x: 99999, y: -5000, d: 1, m: 0, a: 0 });
   await sleep(400);
   const cl = c2.st[selfId] || {};
-  ok('harita dışı x kırpıldı (0..1000)', cl.x >= 0 && cl.x <= 1000);
-  ok('harita dışı y kırpıldı (0..700)', cl.y >= 0 && cl.y <= 700);
+  ok('harita dışı x kırpıldı (0..1521)', cl.x >= 0 && cl.x <= 1521);
+  ok('harita dışı y kırpıldı (0..862)', cl.y >= 0 && cl.y <= 862);
 
   [c1, c2, c3].forEach(x => { try { x.ws.terminate(); } catch (e) {} });
 

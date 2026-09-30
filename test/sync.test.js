@@ -60,8 +60,8 @@ class Tab {
 
 /* Her oyuncunun gideceği bilinen, birbirinden uzak noktalar */
 const SPOTS = [
-  { x: 190, y: 150 }, { x: 520, y: 210 }, { x: 300, y: 430 },
-  { x: 760, y: 330 }, { x: 640, y: 560 },
+  { x: 858, y: 198 }, { x: 803, y: 662 }, { x: 617, y: 545 },
+  { x: 1157, y: 636 }, { x: 455, y: 403 },
 ];
 
 (async () => {
@@ -218,7 +218,7 @@ const SPOTS = [
 
   // Herkesi bir noktaya topla ki sahtekar menzilde bir kurban bulsun
   for (let i = 0; i < N; i++) {
-    await tabs[i].js(`(()=>{const m=ME();m.x=190+(m.x%7);m.y=150+(m.y%5);m.moving=false;})()`);
+    await tabs[i].js(`(()=>{const m=ME();m.x=858+(m.x%7);m.y=198+(m.y%5);m.moving=false;})()`);
   }
   await sleep(2000);
 

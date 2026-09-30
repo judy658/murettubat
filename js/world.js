@@ -1,88 +1,98 @@
 'use strict';
-/* world.js — harita verisi (AREAS), çarpışma/koridor kontrolü, statik harita çizimi */
+/* world.js — Skeld haritası: PNG zemin + yürünebilir oda/koridor dikdörtgenleri.
+   Çarpışma, sis maskesi ve botlar AREAS'e bakar; PNG yalnızca görsel katmandır,
+   bu yüzden dikdörtgenler zeminle hizalı izlenmelidir. */
 
-const WORLD={w:1000,h:700},PAD=90,PR=13;
-const SPAWN={x:190,y:150};
-const AREAS=[
-  {x:50,  y:50,  w:280, h:200, n:'KANTİN'},
-  {x:670, y:50,  w:280, h:200, n:'ELEKTRİK'},
-  {x:50,  y:450, w:280, h:200, n:'DEPO'},
-  {x:670, y:450, w:280, h:200, n:'REVİR'},
-  {x:380, y:270, w:240, h:160, n:'GÜVENLİK'},
-  {x:300, y:110, w:400, h:80},
-  {x:300, y:510, w:400, h:80},
-  {x:150, y:230, w:150, h:240},
-  {x:770, y:230, w:80,  h:240},
-  {x:280, y:320, w:120, h:80},
-  {x:600, y:320, w:190, h:80},
+const MAP_S = 1.5;                          // PNG pikseli -> dünya birimi
+const MAP_IMG = { w: 1014, h: 575 };
+const WORLD = { w: Math.round(MAP_IMG.w * MAP_S), h: Math.round(MAP_IMG.h * MAP_S) };
+const PAD = 90, PR = 13;
+const SPAWN = { x: 858, y: 198 };           // kafeterya masası (server ile aynı)
+
+/* Dikdörtgenler PNG pikseliyle yazılır ve dünyaya ölçeklenir — izlerken
+   görüntüyle birebir karşılaştırabilmek için. */
+const A = (x, y, w, h, n) => ({
+  x: Math.round(x * MAP_S), y: Math.round(y * MAP_S),
+  w: Math.round(w * MAP_S), h: Math.round(h * MAP_S), n,
+});
+
+const AREAS = [
+  /* --- odalar --- */
+  A(172, 78, 98, 119, 'ÜST MOTOR'),
+  A(492, 10, 160, 40),                      // kafeterya: sekgen tepe
+  A(455, 50, 235, 165, 'KAFETERYA'),        // kafeterya: geniş gövde
+  A(492, 215, 160, 55),                     // kafeterya: sekgen taban
+  A(730, 65, 88, 110, 'SİLAHLAR'),
+  A(662, 198, 84, 82, 'O2'),
+  A(920, 221, 60, 62, 'NAVİGASYON'),
+  A(618, 276, 98, 112, 'İDARE'),
+  A(728, 378, 86, 92, 'KALKANLAR'),
+  A(612, 457, 86, 86, 'İLETİŞİM'),
+  A(477, 345, 116, 192, 'DEPO'),
+  A(363, 295, 95, 135, 'ELEKTRİK'),
+  A(278, 220, 50, 97, 'GÜVENLİK'),
+  A(345, 160, 91, 130, 'REVİR'),
+  A(86, 186, 84, 152, 'REAKTÖR'),
+  A(172, 341, 100, 114, 'ALT MOTOR'),
+  /* --- koridorlar --- */
+  A(268, 133, 190, 45),                     // üst motor -> kafeterya
+  A(208, 197, 32, 166),                     // üst motor <-> reaktör <-> alt motor kolonu
+  A(160, 248, 125, 32),                     // reaktör -> güvenlik ağzı
+  A(386, 154, 32, 26),                      // revir -> üst koridor
+  A(682, 100, 50, 45),                      // kafeterya -> silahlar
+  A(760, 175, 34, 55),                      // silahlar -> doğu kavşak
+  A(760, 225, 35, 153),                     // doğu kavşak dikey (idare doğusu)
+  A(795, 256, 128, 25),                     // kavşak -> navigasyon
+  A(793, 256, 48, 122),                     // kavşak -> kalkanlar doğusu
+  A(600, 386, 130, 49),                     // idare güney -> kalkanlar
+  A(666, 435, 36, 35),                      // -> iletişim
+  A(558, 248, 36, 100),                     // kafeterya -> depo (orta kolon)
+  A(270, 377, 100, 55),                     // alt motor -> elektrik
+  A(258, 444, 224, 48),                     // güney koridoru
+  A(363, 430, 32, 25),                      // elektrik -> güney koridoru
 ];
 
-function ptInAreas(px,py){return AREAS.some(a=>px>=a.x&&px<=a.x+a.w&&py>=a.y&&py<=a.y+a.h)}
-function canMoveTo(x,y,R){
-  const k=R*.707;
-  return ptInAreas(x,y)&&
-    ptInAreas(x,y-R)&&ptInAreas(x,y+R)&&ptInAreas(x-R,y)&&ptInAreas(x+R,y)&&
-    ptInAreas(x-k,y-k)&&ptInAreas(x+k,y-k)&&ptInAreas(x-k,y+k)&&ptInAreas(x+k,y+k);
+function ptInAreas(px, py) { return AREAS.some(a => px >= a.x && px <= a.x + a.w && py >= a.y && py <= a.y + a.h); }
+function canMoveTo(x, y, R) {
+  const k = R * .707;
+  return ptInAreas(x, y) &&
+    ptInAreas(x, y - R) && ptInAreas(x, y + R) && ptInAreas(x - R, y) && ptInAreas(x + R, y) &&
+    ptInAreas(x - k, y - k) && ptInAreas(x + k, y - k) && ptInAreas(x - k, y + k) && ptInAreas(x + k, y + k);
 }
-function tryMove(p,dx,dy){
-  if(canMoveTo(p.x+dx,p.y+dy,PR)){p.x+=dx;p.y+=dy;return}
-  if(dx!==0&&canMoveTo(p.x+dx,p.y,PR))p.x+=dx;
-  else if(dy!==0&&canMoveTo(p.x,p.y+dy,PR))p.y+=dy;
+function tryMove(p, dx, dy) {
+  if (canMoveTo(p.x + dx, p.y + dy, PR)) { p.x += dx; p.y += dy; return; }
+  if (dx !== 0 && canMoveTo(p.x + dx, p.y, PR)) p.x += dx;
+  else if (dy !== 0 && canMoveTo(p.x, p.y + dy, PR)) p.y += dy;
 }
-function roomAt(x,y){return AREAS.find(a=>a.n&&x>a.x&&x<a.x+a.w&&y>a.y&&y<a.y+a.h)||null}
+function roomAt(x, y) { return AREAS.find(a => a.n && x > a.x && x < a.x + a.w && y > a.y && y < a.y + a.h) || null; }
 
 /* Ekran (fare) koordinatını dünya koordinatına çevirir — render'daki kamera
    dönüşümünün tersi: world = (screen - center)/zoom + cam */
-function screenToWorld(sx,sy){return {x:(sx-vw/2)/view.sc+cam.x,y:(sy-vh/2)/view.sc+cam.y}}
+function screenToWorld(sx, sy) { return { x: (sx - vw / 2) / view.sc + cam.x, y: (sy - vh / 2) / view.sc + cam.y }; }
 
-const mapC=document.createElement('canvas');
-let mapReady=false;
-function buildMap(){
-  const MW=WORLD.w+PAD*2, MH=WORLD.h+PAD*2;
-  mapC.width=MW;mapC.height=MH;
-  const g=mapC.getContext('2d');g.clearRect(0,0,MW,MH);
-  g.save();g.translate(PAD,PAD);
-  for(let i=4;i>=0;i--){const t=(i+1)*5;
-    g.fillStyle=`rgba(3,5,14,${.2+i*.12})`;
-    AREAS.forEach(a=>g.fillRect(a.x-t,a.y-t,a.w+t*2,a.h+t*2));}
-  g.strokeStyle='#2a3a60';g.lineWidth=3;
-  AREAS.forEach(a=>g.strokeRect(a.x-1,a.y-1,a.w+2,a.h+2));
-  g.fillStyle='#2f3d5c';AREAS.forEach(a=>g.fillRect(a.x,a.y,a.w,a.h));
-  g.strokeStyle='rgba(255,255,255,.035)';g.lineWidth=1;
-  AREAS.forEach(a=>{g.save();g.beginPath();g.rect(a.x,a.y,a.w,a.h);g.clip();
-    for(let x=Math.floor(a.x/32)*32;x<a.x+a.w;x+=32){g.beginPath();g.moveTo(x,a.y);g.lineTo(x,a.y+a.h);g.stroke()}
-    for(let y=Math.floor(a.y/32)*32;y<a.y+a.h;y+=32){g.beginPath();g.moveTo(a.x,y);g.lineTo(a.x+a.w,y);g.stroke()}
-    g.restore()});
-  g.font='26px Bangers,cursive';g.textAlign='center';g.fillStyle='rgba(255,255,255,.11)';
-  AREAS.forEach(a=>{if(a.n)g.fillText(a.n,a.x+a.w/2,a.y+a.h/2+9)});
-  drawProps(g);
-  g.strokeStyle='rgba(63,214,255,.3)';g.setLineDash([6,6]);g.lineWidth=2;
-  g.beginPath();g.arc(SPAWN.x,SPAWN.y,42,0,7);g.stroke();g.setLineDash([]);
-  g.font='bold 11px Nunito';g.fillStyle='rgba(63,214,255,.35)';g.textAlign='center';
-  g.fillText('BAŞLANGIÇ',SPAWN.x,SPAWN.y+56);
+const mapC = document.createElement('canvas');
+let mapReady = false;
+const mapImg = new Image();
+mapImg.src = 'assets/skeld.png';
+mapImg.onload = () => { if (mapC.width) paintMap(); };
+
+function paintMap() {
+  const g = mapC.getContext('2d');
+  g.clearRect(0, 0, mapC.width, mapC.height);
+  g.save(); g.translate(PAD, PAD);
+  g.drawImage(mapImg, 0, 0, WORLD.w, WORLD.h);
+  /* ACİL DURUM butonu — kafeterya masasının ortasındaki kırmızı buton
+     (js/meeting.js EMERG_BTN). PNG'de masa var ama buton belirgin değil. */
+  g.strokeStyle = '#0a1120'; g.lineWidth = 2;
+  g.beginPath(); g.arc(EMERG_BTN.x, EMERG_BTN.y, 12, 0, 7); g.fillStyle = '#6d1220'; g.fill(); g.stroke();
+  g.beginPath(); g.arc(EMERG_BTN.x, EMERG_BTN.y, 9.5, 0, 7); g.fillStyle = '#ff3b30'; g.fill(); g.stroke();
+  g.beginPath(); g.arc(EMERG_BTN.x - 3, EMERG_BTN.y - 3.5, 3, 0, 7); g.fillStyle = 'rgba(255,255,255,.45)'; g.fill();
   g.restore();
-  mapReady=true;
+  mapReady = true;
 }
-function drawProps(g){
-  g.strokeStyle='#0a1120';g.lineWidth=2;
-  g.fillStyle='#222c49';g.beginPath();g.arc(190,150,28,0,7);g.fill();g.stroke();
-  g.fillStyle='#2c3a5f';
-  [[155,118],[225,118],[155,182],[225,182]].forEach(p=>{g.beginPath();g.arc(p[0],p[1],8,0,7);g.fill();g.stroke()});
-  /* ACİL DURUM butonu — masa ortasındaki kırmızı buton (js/meeting.js EMERG_BTN). */
-  g.beginPath();g.arc(190,150,12,0,7);g.fillStyle='#6d1220';g.fill();g.stroke();
-  g.beginPath();g.arc(190,150,9.5,0,7);g.fillStyle='#ff3b30';g.fill();g.stroke();
-  g.beginPath();g.arc(187,146.5,3,0,7);g.fillStyle='rgba(255,255,255,.45)';g.fill();
-  g.fillStyle='#fff';g.font='bold 12px Nunito';g.textAlign='center';g.textBaseline='middle';
-  g.fillText('!',190,151);
-  g.textBaseline='alphabetic';
-  for(let i=0;i<3;i++){const x=720+i*75;g.fillStyle='#1d2740';g.fillRect(x,70,38,50);g.strokeRect(x,70,38,50);
-    g.fillStyle='#ffd23f';g.beginPath();g.moveTo(x+22,76);g.lineTo(x+13,96);g.lineTo(x+19,96);
-    g.lineTo(x+15,114);g.lineTo(x+27,92);g.lineTo(x+20,92);g.closePath();g.fill();}
-  g.fillStyle='#4a3b26';
-  [[90,490,28],[140,520,22],[270,570,26],[250,480,20]].forEach(b=>{g.fillRect(b[0],b[1],b[2],b[2]);g.strokeRect(b[0],b[1],b[2],b[2])});
-  [[710,480],[780,480]].forEach(b=>{g.fillStyle='#c9d6ea';rr(g,b[0],b[1],28,56,6);g.fill();g.stroke();
-    g.fillStyle='#fff';rr(g,b[0]+3,b[1]+4,22,14,4);g.fill()});
-  g.fillStyle='#222c49';g.fillRect(430,340,140,28);g.strokeRect(430,340,140,28);
-  for(let i=0;i<3;i++){g.fillStyle='#0e1626';g.fillRect(445+i*42,316,34,24);g.strokeRect(445+i*42,316,34,24);
-    g.fillStyle='#4fe08a';g.fillRect(450+i*42,322,16,3);g.fillRect(450+i*42,328,22,3);}
+
+function buildMap() {
+  const MW = WORLD.w + PAD * 2, MH = WORLD.h + PAD * 2;
+  if (mapC.width !== MW || mapC.height !== MH) { mapC.width = MW; mapC.height = MH; }
+  if (mapImg.complete && mapImg.naturalWidth) paintMap();
 }
