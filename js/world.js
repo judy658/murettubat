@@ -83,7 +83,7 @@ function screenToWorld(sx, sy) { return { x: (sx - vw / 2) / view.sc + cam.x, y:
    (RECTS ile aynı koordinatlar), setTransform ile ölçeklenir. */
 const mapC = document.createElement('canvas');
 let mapReady = false;
-const SS = 2;                                // süper-örnekleme katsayısı
+const SS = 3;                                // süper-örnekleme katsayısı
 
 let _seed = 1;
 function srand(s) { _seed = s >>> 0; }
@@ -106,6 +106,8 @@ function rc(r) { return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; }
 
 function table(g, x, y, r) {
   r = r || 14;
+  g.fillStyle = '#26405f';
+  for (let i = 0; i < 3; i++) { const a = Math.PI / 2 + i * 2.09; circ(g, x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5), 4.5); g.fill(); }
   g.fillStyle = '#2f4d73'; circ(g, x, y, r); g.fill();
   g.fillStyle = '#4a7fb5'; circ(g, x, y, r - 4); g.fill();
 }
@@ -126,6 +128,8 @@ const PROPS = {
     g.fillStyle = '#6d6794'; circ(g, c.x, c.y, 27); g.fill();
     glow(g, c.x, c.y, 24, '#eaffff', '#54e0d6', 'rgba(40,180,200,0)');
     g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2; circ(g, c.x, c.y, 17); g.stroke();
+    g.fillStyle = '#3b3654';
+    for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; circ(g, c.x + Math.cos(a) * 30, c.y + Math.sin(a) * 30, 5); g.fill(); }
   },
   'GÜVENLİK'(g, r) {
     const c = rc(r);
@@ -153,9 +157,14 @@ const PROPS = {
     });
   },
   'DEPO'(g, r) {
+    g.fillStyle = '#6e767b';
+    rr(g, r.x + 7, r.y + 12, 12, r.h * .42, 3); g.fill();
+    rr(g, r.x + 7, r.y + r.h - 46, 12, 34, 3); g.fill();
+    g.strokeStyle = '#565d61'; g.lineWidth = 1.5;
+    for (let y = r.y + 22; y < r.y + 12 + r.h * .42; y += 14) { g.beginPath(); g.moveTo(r.x + 7, y); g.lineTo(r.x + 19, y); g.stroke(); }
     srand(7);
     for (let i = 0; i < 10; i++) {
-      const s = 13 + rnd() * 8, x = r.x + 10 + rnd() * (r.w - s - 18), y = r.y + 10 + rnd() * (r.h - s - 18);
+      const s = 13 + rnd() * 8, x = r.x + 24 + rnd() * (r.w - s - 32), y = r.y + 10 + rnd() * (r.h - s - 18);
       g.fillStyle = '#8a6b45'; rr(g, x, y, s, s, 2); g.fill();
       g.strokeStyle = '#6b5236'; g.lineWidth = 1.5; rr(g, x, y, s, s, 2); g.stroke();
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + s, y + s); g.moveTo(x + s, y); g.lineTo(x, y + s); g.stroke();
@@ -165,6 +174,7 @@ const PROPS = {
     const c = rc(r);
     g.fillStyle = '#7d3f4b'; rr(g, c.x - 26, c.y - 14, 52, 30, 7); g.fill();
     g.fillStyle = '#8f4b58'; rr(g, c.x - 22, c.y - 10, 44, 22, 5); g.fill();
+    g.fillStyle = '#e8e2d2'; rr(g, c.x - 14, c.y - 6, 10, 7, 1); g.fill(); rr(g, c.x + 2, c.y + 1, 10, 7, 1); g.fill();
     g.fillStyle = '#c9a24a'; rr(g, c.x + 20, c.y - 26, 11, 16, 2); g.fill();
   },
   'KALKANLAR'(g, r) {
@@ -178,6 +188,8 @@ const PROPS = {
     const c = rc(r);
     g.fillStyle = '#6f7a8c'; rr(g, c.x - 22, c.y - 6, 44, 18, 4); g.fill();
     g.fillStyle = '#8fd6ff'; rr(g, c.x - 18, c.y - 3, 36, 8, 2); g.fill();
+    g.fillStyle = '#e8f6ff';
+    for (let i = 0; i < 4; i++) { circ(g, c.x - 13 + i * 9, c.y - 1 + (i % 2) * 3, 1.3); g.fill(); }
   },
   'SİLAHLAR'(g, r) {
     const c = rc(r);
@@ -191,6 +203,8 @@ const PROPS = {
       g.fillStyle = '#4f7f6a'; rr(g, c.x + dx - 6, c.y - 22, 12, 44, 6); g.fill();
       g.fillStyle = '#7fbfa0'; rr(g, c.x + dx - 4, c.y - 17, 4, 34, 2); g.fill();
     });
+    g.strokeStyle = '#3f6a58'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(c.x - 13, c.y + 24); g.lineTo(c.x + 13, c.y + 24); g.stroke();
   },
   'İLETİŞİM'(g, r) {
     const c = rc(r);
@@ -200,15 +214,24 @@ const PROPS = {
   },
 };
 function engine(g, c) {
+  g.strokeStyle = '#4a5064'; g.lineWidth = 5;
+  g.beginPath();
+  g.moveTo(c.x - 20, c.y - 22); g.lineTo(c.x - 34, c.y - 22);
+  g.moveTo(c.x - 20, c.y + 22); g.lineTo(c.x - 34, c.y + 22);
+  g.moveTo(c.x + 20, c.y - 22); g.lineTo(c.x + 34, c.y - 22);
+  g.moveTo(c.x + 20, c.y + 22); g.lineTo(c.x + 34, c.y + 22);
+  g.stroke();
   g.fillStyle = '#3a3f52'; rr(g, c.x - 21, c.y - 42, 42, 84, 8); g.fill();
   g.fillStyle = '#6b7288'; rr(g, c.x - 15, c.y - 35, 30, 70, 6); g.fill();
   glow(g, c.x, c.y, 26, '#fff3c4', '#ffae3b', 'rgba(255,120,20,0)');
 }
-function cafeteria(g) {
+function cafeteriaFloor(g) {
   g.save(); octPath(g); g.clip();
   g.fillStyle = '#cfc9b4';
   for (let y = 10; y < 270; y += 24) for (let x = 455; x < 690; x += 24) if (((x + y) / 24) % 2 < 1) g.fillRect(x, y, 24, 24);
   g.restore();
+}
+function cafeteriaTables(g) {
   [[510, 72], [635, 72], [510, 205], [635, 205]].forEach(p => table(g, p[0], p[1]));
   table(g, 572, 132, 20);                       // merkez masa (acil buton altında)
 }
@@ -229,12 +252,24 @@ function paintMap() {
   g.setTransform(SS * MAP_S, 0, 0, SS * MAP_S, SS * PAD, SS * PAD);
 
   const DRAW = RECTS.filter(r => !r.noDraw).concat([{ oct: 1, floor: '#d8d3c0' }]);
-  /* gövde: dış koyu siluet -> çelik duvar -> zemin (hepsi ayrı geçişte, zemin üstte).
-     Çelik bant geniş tutulur ki bitişik odalar arasındaki boşluk duvar gibi dolsun. */
+  /* gövde: ince dış rim -> koyu siluet -> çelik duvar -> zemin (ayrı geçişler,
+     zemin üstte). Çelik bant geniş tutulur ki bitişik odalar arasındaki
+     boşluk duvar gibi dolsun. */
+  DRAW.forEach(r => { g.fillStyle = g.strokeStyle = '#31405f'; g.lineWidth = 74; shape(g, r); g.stroke(); g.fill(); });
   DRAW.forEach(r => { g.fillStyle = g.strokeStyle = '#1b2135'; g.lineWidth = 66; shape(g, r); g.stroke(); g.fill(); });
   DRAW.forEach(r => { g.fillStyle = g.strokeStyle = '#59677f'; g.lineWidth = 42; shape(g, r); g.stroke(); g.fill(); });
+  /* çelik bant üstüne panel çizgileri: gövdeyi düz banttan çıkarır */
+  DRAW.forEach(r => {
+    const b = r.oct ? { x: 455, y: 10, w: 235, h: 260 } : r;
+    g.save(); shape(g, r); g.clip();
+    g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 1.5;
+    g.beginPath();
+    for (let x = b.x - 30; x <= b.x + b.w + 30; x += 46) { g.moveTo(x, b.y - 30); g.lineTo(x, b.y + b.h + 30); }
+    g.stroke();
+    g.restore();
+  });
   DRAW.forEach(r => { g.fillStyle = r.floor || '#b9c6cf'; shape(g, r); g.fill(); });
-  /* zemin dokusu: her şeklin içine hafif karo ızgarası */
+  /* zemin dokusu: her şeklin içine hafif karo ızgarası + merkez ışığı */
   DRAW.forEach(r => {
     const b = r.oct ? { x: 455, y: 10, w: 235, h: 260 } : r;
     g.save(); shape(g, r); g.clip();
@@ -243,11 +278,22 @@ function paintMap() {
     for (let x = b.x; x <= b.x + b.w; x += 24) { g.moveTo(x, b.y); g.lineTo(x, b.y + b.h); }
     for (let y = b.y; y <= b.y + b.h; y += 24) { g.moveTo(b.x, y); g.lineTo(b.x + b.w, y); }
     g.stroke();
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2, rad = Math.max(b.w, b.h) * .75;
+    const lg = g.createRadialGradient(cx, cy, 4, cx, cy, rad);
+    lg.addColorStop(0, 'rgba(255,255,255,.10)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = lg; g.fillRect(b.x, b.y, b.w, b.h);
+    g.restore();
+  });
+  /* iç kenar gölgesi (AO): zemin duvara değdiği yerde koyulaşsın */
+  cafeteriaFloor(g);
+  DRAW.forEach(r => {
+    g.save(); shape(g, r); g.clip();
+    g.strokeStyle = 'rgba(8,12,22,.22)'; g.lineWidth = 12; shape(g, r); g.stroke();
     g.restore();
   });
 
-  /* oda zemini desenleri + mobilyalar */
-  cafeteria(g);
+  /* oda mobilyaları */
+  cafeteriaTables(g);
   RECTS.forEach(r => { if (r.n && PROPS[r.n]) PROPS[r.n](g, r); });
 
   /* ACİL DURUM butonu — merkez masanın üstünde (js/meeting.js EMERG_BTN, dünya px) */

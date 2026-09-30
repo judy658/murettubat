@@ -82,7 +82,7 @@ function update(dt){
      hesaplanmadan ÖNCE ayarlanır; kamera zaten kurbanın üstüne
      lerp'lendiği için kurbana odaklanır. */
   const myFx=deathFxFor(myId);
-  const zWant=myFx?2.3:1;
+  const zWant=myFx?1.7:1;
   deathZoom+=(zWant-deathZoom)*Math.min(1,dt*11);
   if(Math.abs(deathZoom-zWant)<.005)deathZoom=zWant;
   view.sc=view.base*deathZoom;
@@ -184,7 +184,10 @@ function render(){
 
 function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);
   [bgCv,gameCv].forEach(c=>{c.width=vw*dpr;c.height=vh*dpr});
-  view.base=clamp(Math.min(vw/(WORLD.w+PAD*2),vh/(WORLD.h+PAD*2)),.55,1.2);
+  /* TAKİP KAMERASI: harita ekrana sığdırılmaz — yaklaşık 560 dünya birimi
+     yükseklik görünür, kamera oyuncuyu izler (clamp update'te). Dar
+     ekranlarda en az ~480 birim genişlik garantilenir. */
+  view.base=clamp(Math.min(vh/560,vw/480),.8,2.6);
   view.sc=view.base;fogW=0;fogH=0;}
 addEventListener('resize',resize);
 let last=performance.now();
