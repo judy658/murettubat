@@ -131,7 +131,7 @@ function render(){
   if(S.phase!=='game')return;
   gx.setTransform(dpr,0,0,dpr,0,0);gx.clearRect(0,0,w,h);
   gx.save();gx.translate(w/2,h/2);gx.scale(view.sc,view.sc);gx.translate(-cam.x,-cam.y);
-  if(mapC.width)gx.drawImage(mapC,-PAD,-PAD);
+  if(mapC.width)gx.drawImage(mapC,-PAD,-PAD,WORLD.w+PAD*2,WORLD.h+PAD*2);
   const me=ME();
   /* Acil durum butonu hazırsa (kantin masası ortası) parıldama halkası. */
   if(S.phase==='game'&&me&&!me.dead&&!gameOver&&!meeting&&!ejecting&&emergReady()){
